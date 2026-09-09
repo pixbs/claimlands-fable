@@ -11,10 +11,12 @@ esac
 root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 list="$root/.github/policy/banned.txt"
 [ -f "$list" ] || exit 0
+# Paths to this tool's own configuration are not attribution; drop them before scanning.
+scan="$(printf '%s' "$input" | sed -E 's#[^[:space:]"'"'"']*\.claude/[^[:space:]"'"'"']*##g; s#CLAUDE\.md##g')"
 while IFS= read -r pat; do
   case "$pat" in ''|'#'*) continue ;; esac
   pat="${pat#git }"
-  if printf '%s' "$input" | grep -qiE -- "$pat"; then
+  if printf '%s' "$scan" | grep -qiE -- "$pat"; then
     echo "blocked: this git/gh command contains text banned by .github/policy/banned.txt (pattern /$pat/). Remove AI names, co-author trailers and 'generated with' footers, then retry." >&2
     exit 2
   fi
