@@ -70,22 +70,27 @@ jobs:
 
   report:
     needs: [android, ios, web]
-    if: always() && contains(needs.*.result, 'failure')
+    if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: open or update the ci-failure issue
+      - name: open, update or close the ci-failure issue
         env:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           RESULTS: android=${{ needs.android.result }} ios=${{ needs.ios.result }} web=${{ needs.web.result }}
+          FAILED: ${{ contains(needs.*.result, 'failure') }}
         run: |
           title="mobile build failing on main"
           existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --label ci-failure --state open --search "$title" --json number -q '.[0].number')
           body="Run: $RUN_URL
           Results: $RESULTS
           Commit: $GITHUB_SHA"
-          if [ -n "$existing" ]; then
-            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
-          else
-            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --label ci-failure --label type:bug --label prio:p1 --body "$body"
+          if [ "$FAILED" = "true" ]; then
+            if [ -n "$existing" ]; then
+              gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
+            else
+              gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --label ci-failure --label type:bug --label prio:p1 --body "$body"
+            fi
+          elif [ -n "$existing" ]; then
+            gh issue close "$existing" --repo "$GITHUB_REPOSITORY" --comment "Green again. $body"
           fi
