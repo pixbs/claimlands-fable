@@ -7,7 +7,8 @@ use crate::TileId;
 pub struct MeshData {
     /// `xyz` per vertex.
     pub positions: Vec<f32>,
-    /// `xyz` per vertex, one flat normal per triangle repeated three times.
+    /// `xyz` per vertex, one flat normal per triangle repeated three times, or empty for an
+    /// unlit mesh that needs none.
     pub normals: Vec<f32>,
     /// `uv` per vertex, or empty for untextured meshes.
     pub uvs: Vec<f32>,
@@ -47,7 +48,7 @@ impl MeshData {
         if !v.is_multiple_of(9) {
             return Err(format!("positions length {v} is not a multiple of 9"));
         }
-        if self.normals.len() != v {
+        if !self.normals.is_empty() && self.normals.len() != v {
             return Err(format!(
                 "normals length {} != positions length {v}",
                 self.normals.len()
