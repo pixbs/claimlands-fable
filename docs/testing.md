@@ -20,10 +20,10 @@
 
 | Directory | Content | Compared how |
 |---|---|---|
-| `noise/` | hash, noise, fBm, mulberry32 vectors; JavaScript semantics table; V8 transcendentals | bit-exact, except `sin`/`cos`/`pow` within 2 ulp until the fdlibm port lands |
+| `noise/` | hash, noise, fBm, mulberry32 vectors; JavaScript semantics table; V8 transcendentals | bit-exact |
 | `hexsphere/` | per frequency: counts, pentagons, neighbours, corner tiles, coordinates (`n ≤ 6` in full), quantised hashes | exact |
 | `worldgen/` | levels and cover per tile for three worlds | exact |
-| `pixelart/` | PNGs of every texture the prototype draws, plus sampler settings | texel-exact; strips using `hash2` allow a budget of 2 texels |
+| `pixelart/` | PNGs of every texture the prototype draws, plus sampler settings | texel-exact |
 | `scenery/` | per builder: attribute lengths, `sha256` of the `f32` bytes, first 64 floats, a stride sample | exact hash |
 | `constants.json` | every top-level prototype constant | exact |
 
@@ -33,11 +33,11 @@ frozen; its SHA-256 is recorded in `fixtures/index.json`.
 
 ## Tolerances
 
-Integer and hash functions, geometry, mesh attributes and worldgen are exact: a single differing bit
-fails. The only tolerance is documented in `cl-noise/tests/fixtures.rs`: `libm` (musl lineage)
-differs from V8's fdlibm in the last bit for about 1 % of `sin`, `cos` and `pow` arguments, which
-propagates into `hash2` and the two strips that use it. The fdlibm port issue removes the tolerance;
-until then every test prints how many values passed only by tolerance.
+There are none. Every fixture comparison is exact: a single differing bit fails. Transcendentals
+were the last exception — `libm` (musl lineage) rounds `sin`, `cos` and `pow` differently from V8's
+fdlibm for about 1 % of arguments, which reached `hash2` and the strips built on it — and
+`cl_noise::js::{sin, cos, pow}` now reproduces V8 bit for bit, so those rows are exact too. A new
+tolerance needs a reason in the PR and a constant named after what it covers.
 
 ## Writing tests
 

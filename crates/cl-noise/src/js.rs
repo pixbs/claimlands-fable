@@ -1,6 +1,10 @@
 //! JavaScript number semantics the prototype depends on. Each function reproduces the ECMAScript
 //! operation (or V8's implementation of it) exactly, so ports can keep the prototype's expressions.
 
+mod fdlibm;
+
+pub use fdlibm::{cos, pow, sin};
+
 /// `ToInt32(x)`: what `x | 0` and the operands of `Math.imul`, `^` and `>>>` become.
 pub fn to_int32(x: f64) -> i32 {
     if !x.is_finite() {

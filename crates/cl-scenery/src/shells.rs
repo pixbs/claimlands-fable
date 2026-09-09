@@ -3,7 +3,7 @@
 use cl_hexsphere::{Frames, HexSphere};
 use cl_model::MeshData;
 use cl_model::world::{ATMO_PX, CLOUD_PX, RADIUS};
-use cl_noise::js::hypot2;
+use cl_noise::js::{hypot2, sin};
 use cl_noise::vec::{add, mul, norm};
 
 /// A mesh on a sphere shell, with the radius the app needs for the halo and the deck spacing.
@@ -57,7 +57,7 @@ pub fn build_cloud_shell(sphere: &HexSphere, frames: &Frames, px: f64) -> Shell 
         }
         let nc = norm(mid);
         let mid = mul(nc, rad);
-        let polar = hypot2(nc[0], nc[2]) < libm::sin(frame.unit_circum * 1.05);
+        let polar = hypot2(nc[0], nc[2]) < sin(frame.unit_circum * 1.05);
         let u0 = lon(nc);
         let u_of = |n: [f64; 3]| {
             if polar {

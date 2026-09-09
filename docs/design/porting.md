@@ -8,7 +8,7 @@ true on every platform. `clippy.toml` enforces the ones a lint can catch.
 | Keep the prototype's expressions and evaluation order: `(a * w + b * i + c * j) / n` stays exactly that. | IEEE 754 arithmetic is deterministic only for the same operation sequence. |
 | `f64` everywhere until the final `f32` push into `MeshData`. | JavaScript numbers are doubles; three.js converts to `Float32Array` at the end. |
 | No FMA: never `mul_add`. | JavaScript never fuses; a fused multiply-add changes the last bit. |
-| Transcendentals through `libm` (`libm::sin`, `atan2`, `acos`, `pow`), never `f64::sin` & co. | Platform libms differ; `libm` is one implementation everywhere. Known residue: `sin`/`cos`/`pow` differ from V8's fdlibm in the last bit for ~1 % of inputs until the fdlibm port issue lands. |
+| `Math.sin`, `Math.cos`, `Math.pow` → `cl_noise::js::{sin, cos, pow}`; the other transcendentals through `libm` (`libm::atan2`, `libm::acos`), never `f64::sin` & co. | Platform libms differ, and `libm`'s own `sin`/`cos`/`pow` round differently from V8 for ~1 % of inputs. `cl_noise::js` is V8's fdlibm ported operation for operation, so every platform lands on the prototype's bits. |
 | Lengths through `cl_noise::vec::len` (V8's compensated `Math.hypot`), not `sqrt(x²+y²+z²)`. | V8's hypot scales and Kahan-sums; the naive form differs by an ulp often enough to move dithered texels. |
 | `Math.round` → `cl_noise::js::round`; `x \| 0`, `Math.imul`, `>>>` → `to_int32`, `imul`, `ushr`. | Rust's `round` ties away from zero; JavaScript ties toward +∞ and truncates to int32 modulo 2³². |
 | `toFixed(6)` → `cl_noise::js::to_fixed6` (exact decimal rounding). | The geodesic vertex key decides tile ids. |

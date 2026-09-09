@@ -1,21 +1,15 @@
 #![allow(clippy::pedantic, clippy::print_stderr, clippy::print_stdout)]
 //! Replays `fixtures/noise/*.json`, extracted from the prototype by `reference/harness/extract.mjs`.
-//! Integer hashes, value noise, fBm and mulberry32 are compared bit for bit. `sin`, `cos` and
-//! `pow` are compared within 2 ulp until the fdlibm port lands (see the `cl-noise` issue
-//! "bit-exact sin/cos/pow"): `libm` descends from FreeBSD's rewrite of fdlibm while V8 ships the
-//! original, and the two disagree in the last bit for about 1 % of arguments.
+//! Every value is compared bit for bit: integer hashes, value noise, fBm, mulberry32, the JS
+//! semantics table, and the transcendentals `cl_noise::js` ports from V8 (`sin`, `cos`, `pow`)
+//! alongside the `libm` functions that already match V8 (`atan2`, `acos`, `sqrt`).
 
 use std::fs;
 use std::path::PathBuf;
 
-use cl_noise::js::{hypot2, hypot3, imul, round, to_fixed6, to_int32, ushr};
+use cl_noise::js::{cos, hypot2, hypot3, imul, pow, round, sin, to_fixed6, to_int32, ushr};
 use cl_noise::{Mulberry32, fbm3, hash2, hash3, vnoise3};
 use serde_json::Value;
-
-/// Allowed distance, in units in the last place, for functions not yet ported from fdlibm.
-const TRANSCENDENTAL_ULPS: u64 = 2;
-/// `hash2` scales `sin` by 43758.5453 before taking the fraction, so 1 ulp of `sin` becomes ~1e-11.
-const HASH2_TOLERANCE: f64 = 1e-9;
 
 fn fixture(name: &str) -> Value {
     let path: PathBuf = [
@@ -50,14 +44,9 @@ fn arr(v: &Value) -> Vec<f64> {
     v.as_array().expect("array").iter().map(num).collect()
 }
 
-fn ulps_apart(a: f64, b: f64) -> u64 {
-    if a.to_bits() == b.to_bits() || (a.is_nan() && b.is_nan()) {
-        return 0;
-    }
-    if a.is_nan() || b.is_nan() || a.signum() != b.signum() {
-        return u64::MAX;
-    }
-    a.to_bits().abs_diff(b.to_bits())
+/// Bit equality, with every NaN equal to every other (the harness writes them as `"NaN"`).
+fn same_bits(a: f64, b: f64) -> bool {
+    a.to_bits() == b.to_bits() || (a.is_nan() && b.is_nan())
 }
 
 /// Collects mismatches so one run reports them all.
@@ -65,42 +54,14 @@ fn ulps_apart(a: f64, b: f64) -> u64 {
 struct Check {
     total: usize,
     failures: Vec<String>,
-    /// Values that passed only thanks to a tolerance, by function name.
-    inexact: Vec<(String, u64)>,
 }
 
 impl Check {
     fn bits(&mut self, what: impl FnOnce() -> String, expected: f64, got: f64) {
         self.total += 1;
-        if ulps_apart(expected, got) != 0 {
+        if !same_bits(expected, got) {
             self.failures
                 .push(format!("{}: expected {expected:e} got {got:e}", what()));
-        }
-    }
-
-    fn ulps(&mut self, name: &str, what: impl FnOnce() -> String, expected: f64, got: f64) {
-        self.total += 1;
-        let d = ulps_apart(expected, got);
-        if d > TRANSCENDENTAL_ULPS {
-            self.failures.push(format!(
-                "{}: expected {expected:e} got {got:e} ({d} ulp)",
-                what()
-            ));
-        } else if d > 0 {
-            self.inexact.push((name.to_owned(), d));
-        }
-    }
-
-    fn within(&mut self, tol: f64, what: impl FnOnce() -> String, expected: f64, got: f64) {
-        self.total += 1;
-        let d = (expected - got).abs();
-        if d > tol {
-            self.failures.push(format!(
-                "{}: expected {expected:e} got {got:e} (diff {d:e})",
-                what()
-            ));
-        } else if d > 0.0 {
-            self.inexact.push(("hash2".to_owned(), 1));
         }
     }
 
@@ -119,26 +80,6 @@ impl Check {
 
     fn finish(self, name: &str) {
         assert!(self.total > 0, "{name}: fixture is empty");
-        if !self.inexact.is_empty() {
-            let mut names: Vec<&str> = self.inexact.iter().map(|(n, _)| n.as_str()).collect();
-            names.sort_unstable();
-            names.dedup();
-            let summary: Vec<String> = names
-                .iter()
-                .map(|n| {
-                    format!(
-                        "{n}: {}",
-                        self.inexact.iter().filter(|(m, _)| m == n).count()
-                    )
-                })
-                .collect();
-            eprintln!(
-                "{name}: {} of {} values within tolerance but not exact ({})",
-                self.inexact.len(),
-                self.total,
-                summary.join(", ")
-            );
-        }
         assert!(
             self.failures.is_empty(),
             "{name}: {} of {} values differ:\n{}",
@@ -169,12 +110,11 @@ fn hash3i_matches_prototype() {
 }
 
 #[test]
-fn hash2_matches_prototype_within_sin_drift() {
+fn hash2_matches_prototype() {
     let mut c = Check::default();
     for row in fixture("hash2.json").as_array().unwrap() {
         let i = arr(&row["in"]);
-        c.within(
-            HASH2_TOLERANCE,
+        c.bits(
             || format!("hash2{i:?}"),
             num(&row["out"]),
             hash2(i[0], i[1]),
@@ -299,57 +239,39 @@ fn js_semantics_match_v8() {
 }
 
 #[test]
-fn libm_matches_v8_transcendentals() {
+fn transcendentals_match_v8() {
     let f = fixture("js-semantics.json");
     let mut c = Check::default();
     for row in f["trig"].as_array().unwrap() {
         let (x, y, u) = (num(&row["x"]), num(&row["y"]), num(&row["u"]));
-        c.ulps(
-            "sin",
-            || format!("sin({x:e})"),
-            num(&row["sin"]),
-            libm::sin(x),
-        );
-        c.ulps(
-            "cos",
-            || format!("cos({x:e})"),
-            num(&row["cos"]),
-            libm::cos(x),
-        );
+        c.bits(|| format!("sin({x:e})"), num(&row["sin"]), sin(x));
+        c.bits(|| format!("cos({x:e})"), num(&row["cos"]), cos(x));
         c.bits(
             || format!("atan2({y:e},{x:e})"),
             num(&row["atan2"]),
             libm::atan2(y, x),
         );
         c.bits(|| format!("acos({y:e})"), num(&row["acos"]), libm::acos(y));
-        c.ulps(
-            "pow",
+        c.bits(
             || format!("pow({u:e},1.7)"),
             num(&row["pow17"]),
-            libm::pow(u, 1.7),
+            pow(u, 1.7),
         );
-        c.ulps(
-            "pow",
+        c.bits(
             || format!("pow({u:e},2.2)"),
             num(&row["pow22"]),
-            libm::pow(u, 2.2),
+            pow(u, 2.2),
         );
-        c.ulps(
-            "pow",
+        c.bits(
             || format!("pow({u:e},1.6)"),
             num(&row["pow16"]),
-            libm::pow(u, 1.6),
+            pow(u, 1.6),
         );
         c.bits(|| format!("sqrt({u:e})"), num(&row["sqrt"]), u.sqrt());
     }
     for row in f["sinHash"].as_array().unwrap() {
         let x = num(&row["x"]);
-        c.ulps(
-            "sin",
-            || format!("sin({x:e})"),
-            num(&row["sin"]),
-            libm::sin(x),
-        );
+        c.bits(|| format!("sin({x:e})"), num(&row["sin"]), sin(x));
     }
     c.finish("transcendentals");
 }

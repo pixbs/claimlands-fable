@@ -3,7 +3,7 @@
 
 use cl_model::{RgbaImage, hex_rgb};
 use cl_noise::hash2;
-use cl_noise::js::round;
+use cl_noise::js::{round, sin};
 
 use crate::palette::{CLIFF_ROWS, FIELD_CROPS, FOAM_ROWS};
 
@@ -90,14 +90,12 @@ pub fn make_foam_texture() -> Texture {
             + 0.72
                 * (0.5
                     + 0.5
-                        * libm::sin(
-                            f64::from(f) / f64::from(FOAM_FRAMES) * std::f64::consts::PI * 2.0,
-                        ));
+                        * sin(f64::from(f) / f64::from(FOAM_FRAMES) * std::f64::consts::PI * 2.0));
         for x in 0..FOAM_W {
             let xf = f64::from(x);
             let shape = 1.15
-                + 1.25 * libm::sin(xf * 0.55)
-                + 0.75 * libm::sin(xf * 0.23 + 2.1)
+                + 1.25 * sin(xf * 0.55)
+                + 0.75 * sin(xf * 0.23 + 2.1)
                 + 0.45 * hash2(xf * 1.3, 7.7);
             let crest = shape * swell * (f64::from(FOAM_H) / 4.0);
             for j in 0..FOAM_H {

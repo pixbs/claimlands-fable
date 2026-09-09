@@ -25,9 +25,8 @@ prototype sections 2, 3b, 4b (texture), the cloud sky and the glow.
 - Constants equal `fixtures/constants.json` (tested).
 
 ## Testing
-`tests/fixtures.rs` decodes `fixtures/pixelart/*.png` and compares texel bytes. Strips using
-`hash2` (cliff, foam) allow the documented tolerance budget until the fdlibm `sin` port lands; the
-field strip is exact.
+`tests/fixtures.rs` decodes `fixtures/pixelart/*.png` and compares texel bytes. Every strip is
+exact, the ones sampling `hash2` (cliff, foam) included.
 
 ## Non-goals
 Meshes and UVs (`cl-scenery`), GPU upload (`cl-render`).

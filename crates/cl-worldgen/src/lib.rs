@@ -4,7 +4,7 @@
 use cl_hexsphere::HexSphere;
 use cl_model::{Cover, Terrain, TileState, WorldSnapshot};
 use cl_noise::Mulberry32;
-use cl_noise::js::{round, to_int32};
+use cl_noise::js::{round, sin, to_int32};
 use cl_noise::vec::{dot, norm};
 
 /// Share of tiles that come out as land.
@@ -46,7 +46,7 @@ pub fn generate_terrain_with_fraction(
         .map(|t| {
             let mut s = 0.0;
             for &(d, f, p) in &waves {
-                s += libm::sin(f * dot(t.center, d) * std::f64::consts::PI + p) / f;
+                s += sin(f * dot(t.center, d) * std::f64::consts::PI + p) / f;
             }
             s
         })

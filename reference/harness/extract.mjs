@@ -234,6 +234,17 @@ step('js-semantics', () => {
   });
   for (let i = 0; i < 200; i++) addTrig(r() * 40 - 20, r() * 2 - 1, r());
   for (const x of [0, Math.PI, -Math.PI, Math.PI / 2, 1e-9, 100, 1000000, 0.1, 43758.5453]) addTrig(x, 0.5, 0.5);
+  // Past 2^19*(pi/2) the reduction switches from the 3-step pi/2 subtraction to the 2/pi table,
+  // so these rows pin __kernel_rem_pio2: the boundary and its neighbours, exact powers of two, the
+  // worst case for the reduction, and the largest finite double. The last two are the other end,
+  // where the kernels return the argument untouched: the smallest subnormal and the smallest normal.
+  const big = 524288 * Math.PI / 2;
+  for (const x of [big, big + 1, big * 1.0000001, 1e6, 1e7, 12345678.9, 1e13, 1e15, 1e17, 1e22,
+    2 ** 30, 2 ** 52, 2 ** 60, 2 ** 120, 2 ** 500, 6381956970095103 * 2 ** 797, 1.7976931348623157e308,
+    5e-324, 2.2250738585072014e-308, 1e100 * Math.PI / 2, 123456789 * Math.PI / 2]) {
+    addTrig(x, 0.5, 0.5);
+    addTrig(-x, -0.5, 0.25);
+  }
   const sinHash = [];
   for (let i = 0; i < 100; i++) {
     const x = r() * 100000;

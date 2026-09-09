@@ -25,7 +25,7 @@ checks the allow-list in `xtask/src/lint.rs` on every PR.
 | Crate | Responsibility | May depend on |
 |---|---|---|
 | `cl-model` | vocabulary: `TileId`, `Faction`, `Terrain`, `Cover`, `UnitKind`, `TileState`, `WorldSnapshot`, `MeshData`, `RgbaImage`, `Board`, world scale constants | serde |
-| `cl-noise` | `hash2`, `hash3i`, `vnoise3`, `fbm3`, `Mulberry32`, V8-exact `hypot`, `to_int32`, `round`, `to_fixed6`, 3-vector kit | libm |
+| `cl-noise` | `hash2`, `hash3i`, `vnoise3`, `fbm3`, `Mulberry32`, V8-exact `sin`, `cos`, `pow`, `hypot`, `to_int32`, `round`, `to_fixed6`, 3-vector kit | libm |
 | `cl-hexsphere` | geodesic icosahedron, dual tiles with corners/neighbours/frames, facet planes, texel inverse | model, noise |
 | `cl-worldgen` | continents, initial cover clumps | model, hexsphere, noise |
 | `cl-pixelart` | strips, ground atlas, cloud sky, halo, palette | model, hexsphere, noise |
