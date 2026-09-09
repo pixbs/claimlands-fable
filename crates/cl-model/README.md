@@ -20,7 +20,7 @@ dependency beyond `serde`.
 
 ## Invariants
 - `tile_count(n) == 10n² + 2` for `2 ≤ n ≤ 12`; a valid `WorldSnapshot` holds exactly that many tiles.
-- `MeshData::validate`: `positions.len() == normals.len()`, both multiples of 9; `uvs` empty or `2/3` of positions; `colors` empty or equal to positions; `face_tile` empty or one per triangle.
+- `MeshData::validate`: `positions.len()` a multiple of 9; `normals` empty (an unlit mesh needs none) or equal to positions; `uvs` empty or `2/3` of positions; `colors` empty or equal to positions; `face_tile` empty or one per triangle.
 - `TileState::validate`: sea tiles carry no cover, owner or unit; `Capital` requires an owner (a `Town` may be neutral).
 
 ## Testing

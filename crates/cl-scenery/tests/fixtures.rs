@@ -6,7 +6,9 @@ use std::fs;
 use std::path::PathBuf;
 
 use cl_hexsphere::{HexSphere, compute_tile_frames};
-use cl_scenery::{build_atmosphere, build_cloud_shell};
+use cl_model::{Cover, Terrain, TileId, TileState, WorldSnapshot};
+use cl_pixelart::build_terrain_atlas;
+use cl_scenery::{build_atmosphere, build_cloud_shell, build_terrain};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
@@ -134,5 +136,137 @@ fn atmosphere_and_cloud_shell_match_prototype() {
             &f["cloudShell"]["geometry"]["normal"],
         );
         assert!(shell.mesh.validate().is_ok());
+    }
+}
+
+/// The prototype world behind a fixture tag: levels and cover straight from `fixtures/worldgen`, so
+/// the mesh is pinned against the prototype's own world and not against a second port.
+fn world(tag: &str) -> (HexSphere, WorldSnapshot) {
+    let path: PathBuf = [
+        env!("CARGO_MANIFEST_DIR"),
+        "..",
+        "..",
+        "fixtures",
+        "worldgen",
+        &format!("{tag}.json"),
+    ]
+    .iter()
+    .collect();
+    let v: Value = serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
+    let frequency = v["n"].as_u64().unwrap() as u8;
+    let seed = v["seed"].as_u64().unwrap() as u32;
+    let tiles = v["level"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .zip(v["cover"].as_array().unwrap())
+        .map(|(level, cover)| TileState {
+            terrain: Terrain::from_level(level.as_i64().unwrap() as i32),
+            cover: match cover.as_str() {
+                None => Cover::None,
+                Some("houses") => Cover::Town,
+                Some("forest") => Cover::Forest,
+                Some("fields") => Cover::Field,
+                Some(other) => panic!("unknown cover {other}"),
+            },
+            ..TileState::default()
+        })
+        .collect();
+    (
+        HexSphere::build(frequency),
+        WorldSnapshot {
+            frequency,
+            seed,
+            tiles,
+        },
+    )
+}
+
+fn sha256_ids(ids: &[TileId]) -> String {
+    let joined: Vec<String> = ids.iter().map(|i| i.0.to_string()).collect();
+    hex::encode(Sha256::digest(joined.join(",").as_bytes()))
+}
+
+#[test]
+fn terrain_meshes_match_prototype_worlds() {
+    for tag in ["n4-s31676", "n4-s1234", "n8-s63352"] {
+        let f = fixture(&format!("{tag}-terrain.json"));
+        let (sphere, snapshot) = world(tag);
+        let frames = compute_tile_frames(&sphere, &snapshot.levels());
+        assert_eq!(
+            frames.px.to_bits(),
+            f["px"].as_f64().unwrap().to_bits(),
+            "{tag} px"
+        );
+        let atlas = build_terrain_atlas(&sphere, &frames, &snapshot, f64::from(snapshot.seed));
+        let terrain = build_terrain(&sphere, &frames, &snapshot, &atlas);
+
+        for (name, mesh) in [
+            ("mesh", &terrain.mesh),
+            ("walls", &terrain.walls),
+            ("foam", &terrain.foam),
+            ("edges", &terrain.edges),
+        ] {
+            let want = &f[name];
+            check_attribute(
+                &format!("{tag} {name}.position"),
+                &mesh.positions,
+                &want["position"],
+            );
+            if !want["uv"].is_null() {
+                check_attribute(&format!("{tag} {name}.uv"), &mesh.uvs, &want["uv"]);
+            }
+            if !want["color"].is_null() {
+                check_attribute(&format!("{tag} {name}.color"), &mesh.colors, &want["color"]);
+            }
+            if !want["normal"].is_null() {
+                check_attribute(
+                    &format!("{tag} {name}.normal"),
+                    &mesh.normals,
+                    &want["normal"],
+                );
+            }
+            assert!(
+                mesh.validate().is_ok(),
+                "{tag} {name}: {:?}",
+                mesh.validate()
+            );
+        }
+
+        assert_eq!(
+            terrain.face_tile().len(),
+            f["faceTileLen"].as_u64().unwrap() as usize,
+            "{tag} faceTile length"
+        );
+        assert_eq!(
+            sha256_ids(terrain.face_tile()),
+            f["faceTileHash"].as_str().unwrap(),
+            "{tag} faceTile"
+        );
+        assert_eq!(
+            terrain.wall_tile().len(),
+            f["wallTileLen"].as_u64().unwrap() as usize,
+            "{tag} wallTile length"
+        );
+        assert_eq!(
+            sha256_ids(terrain.wall_tile()),
+            f["wallTileHash"].as_str().unwrap(),
+            "{tag} wallTile"
+        );
+
+        let starts: Vec<usize> = f["vertexStart"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x.as_u64().unwrap() as usize)
+            .collect();
+        let counts: Vec<usize> = f["vertexCount"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x.as_u64().unwrap() as usize)
+            .collect();
+        assert_eq!(terrain.vertex_start, starts, "{tag} vertexStart");
+        assert_eq!(terrain.vertex_count, counts, "{tag} vertexCount");
     }
 }

@@ -11,7 +11,7 @@ territory outline and the space pass.
 |---|---|---|
 | `build_atmosphere(&sphere, px)` | `buildAtmosphere` | ported |
 | `build_cloud_shell(&sphere, &frames, px)` | `buildCloudShell` | ported |
-| `build_terrain` (fans, cliff wedges, surf, edge ribbons, `face_tile`, `wall_tile`) | `buildMesh` | issue M1 |
+| `build_terrain(&sphere, &frames, &snapshot, &atlas)` -> `Terrain` (fans, cliff wedges, surf, edge ribbons, `face_tile`, `wall_tile`, `vertex_start`/`vertex_count`) | `buildMesh` | ported |
 | `build_fields` (zones, parcels, fences) | `buildFields` | issue M1 |
 | `build_forest` | `buildForest` | issue M1 |
 | `build_houses` | `buildHouses` | issue M1 |
@@ -24,7 +24,10 @@ territory outline and the space pass.
 - Builders read `WorldSnapshot`, never `GameState`.
 - Positions are `f64` until the final `f32` push; triangle order is the prototype's, so the
   `sha256_f32` of a builder's output equals the fixture's.
-- Every mesh passes `MeshData::validate()`.
+- Every mesh passes `MeshData::validate()`. The edge ribbons carry positions only: they are drawn
+  unlit and need no normals.
+- Corner displacement along a coast is a property of the corner, not of the tile asking for it, so
+  both tiles meeting there place the wedge foot at the same point and the coastline cannot crack.
 
 ## Testing
 `tests/fixtures.rs` compares each ported builder with `fixtures/scenery/*.json`: vertex counts,
