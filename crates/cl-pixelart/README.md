@@ -14,7 +14,7 @@ prototype sections 2, 3b, 4b (texture), the cloud sky and the glow.
 | `make_cliff_texture()` | `makeCliffTexture` | ported |
 | `make_foam_texture()` | `makeFoamTexture` (8-frame sheet) | ported |
 | `make_field_texture()`, `field_row_v` | `makeFieldTexture`, `fieldRowV` | ported |
-| `build_terrain_atlas` with `refresh` / `repaint` | `buildTerrainAtlas` | issue M1 |
+| `build_terrain_atlas`, `Atlas::refresh` / `Atlas::repaint`, `CoastFields` | `buildTerrainAtlas` | ported |
 | `make_cloud_sky` | `makeCloudSky` | issue M1 |
 | `make_glow` | `makeGlow` | issue M1 |
 
@@ -23,10 +23,19 @@ prototype sections 2, 3b, 4b (texture), the cloud sky and the glow.
 - Texel values are integers in `0..=255` written exactly as the prototype computes them
   (`Math.round` semantics via `cl_noise::js::round`).
 - Constants equal `fixtures/constants.json` (tested).
+- The atlas is a function of the sphere, the snapshot's levels and cover, and the seed. `refresh`
+  (after a level change) and `repaint` (after a cover change) leave it byte-identical to a full
+  rebuild; they exist only to avoid repainting the whole planet.
+- A capital paints as a village: the prototype has only `houses`, and a capital walks the ground
+  bare the same way.
 
 ## Testing
 `tests/fixtures.rs` decodes `fixtures/pixelart/*.png` and compares texel bytes. Every strip is
-exact, the ones sampling `hash2` (cliff, foam) included.
+exact, the ones sampling `hash2` (cliff, foam) included, and so is the ground atlas of all three
+prototype worlds together with its per-tile and per-corner coast fields. The atlas test builds its
+snapshot from `fixtures/worldgen/*.json`, so it pins the port against the prototype's own levels and
+cover rather than against `cl-worldgen`. `src/atlas.rs` covers `refresh` and `repaint` against a
+full rebuild.
 
 ## Non-goals
 Meshes and UVs (`cl-scenery`), GPU upload (`cl-render`).

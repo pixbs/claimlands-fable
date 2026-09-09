@@ -2,9 +2,15 @@
 //! atlas, cloud sky, halo. Sections 2, 3b, 4b (texture), clouds and glow of `hex-planet.html`.
 #![forbid(unsafe_code)]
 
+mod atlas;
 pub mod palette;
 mod strips;
 
+pub use atlas::{
+    Atlas, COAST_DARKEN, COAST_TIGHT, CoastFields, DITHER_LATTICE, GRASS_DITHER, GRASS_F0,
+    GRASS_OCT, MUD_DITHER, MUD_EDGE, MUD_F0, MUD_OCT, MUD_SALT, MUD_SCATTER, SEA_DITHER, SEA_F0,
+    SEA_FADE, SEA_OCT, SEA_SHALLOW, SPECKLE, build_terrain_atlas,
+};
 pub use strips::{
     BEACH_PX, CLIFF_H, CLIFF_W, FIELD_ROWS, FOAM_FRAMES, FOAM_H, FOAM_PX, FOAM_W, FURROW_PX,
     Texture, Wrap, field_row_v, make_cliff_texture, make_field_texture, make_foam_texture,
