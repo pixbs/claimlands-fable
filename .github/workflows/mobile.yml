@@ -37,7 +37,7 @@ jobs:
           gradle-version: "8.11.1"
       - run: cargo install cargo-ndk --locked
       - run: cargo xtask android --release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: android-apk
           path: platforms/android/app/build/outputs/apk/debug/*.apk

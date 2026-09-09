@@ -90,7 +90,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: sudo apt-get install -y --no-install-recommends binaryen
       - run: cargo xtask web
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: web-dist
           path: dist
