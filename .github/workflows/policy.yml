@@ -18,6 +18,8 @@ jobs:
         with:
           fetch-depth: 0
       - name: scrub known attribution footers from the PR body
+        # Dependabot-triggered runs hold a read-only token: they are checked but not edited.
+        if: github.event.pull_request.user.login != 'dependabot[bot]'
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
@@ -38,8 +40,12 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           TITLE: ${{ github.event.pull_request.title }}
           SKIP_CLOSES: ${{ github.event.pull_request.user.login == 'dependabot[bot]' && '1' || '0' }}
+          SKIP_BODY: ${{ github.event.pull_request.user.login == 'dependabot[bot]' && '1' || '0' }}
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
         run: |
           set +e
+          [ -f body.md ] || gh pr view "$PR" --json body -q .body > body.md
           {
             bash .github/policy/check.sh branch "$HEAD_REF"
             bash .github/policy/check.sh pr-title "$TITLE"
@@ -50,6 +56,7 @@ jobs:
           echo "added=$added" >> "$GITHUB_OUTPUT"
           if [ -s findings.txt ]; then echo "failed=true" >> "$GITHUB_OUTPUT"; cat findings.txt; else echo "failed=false" >> "$GITHUB_OUTPUT"; fi
       - name: comment
+        if: github.event.pull_request.user.login != 'dependabot[bot]'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: policy
