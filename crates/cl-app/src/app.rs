@@ -6,15 +6,21 @@ use std::sync::Arc;
 
 use cl_hexsphere::HexSphere;
 use cl_model::WorldSnapshot;
-use cl_render::Gpu;
+use cl_render::{Gpu, Renderer, SceneUniform};
 use cl_ui::{Hud, HudAction, HudInfo};
 use winit::application::ApplicationHandler;
-use winit::event::WindowEvent;
+use winit::event::{ElementState, MouseScrollDelta, WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowAttributes, WindowId};
 
+use crate::camera::{Camera, Trackball, spread};
+use crate::planet::Planet;
+use crate::time::now_ms;
+
 /// The prototype's clear colour behind the space pass (`SKY_RIM`), as raw 0–1 values.
 const CLEAR: [f64; 3] = [3.0 / 255.0, 2.0 / 255.0, 9.0 / 255.0];
+/// Pointer id of the mouse; touches carry their own.
+const MOUSE: u64 = u64::MAX;
 /// Default pixel scale (`pixelScale = 3` in the prototype).
 const PIXEL_SCALE: u32 = 3;
 
@@ -34,6 +40,58 @@ pub struct App {
     world: WorldSnapshot,
     sphere: HexSphere,
     attributes: WindowAttributes,
+    renderer: Option<Renderer>,
+    planet: Option<Planet>,
+    camera: Camera,
+    trackball: Trackball,
+    input: Input,
+    cursor: (f32, f32),
+}
+
+/// Pointers currently down, and what the gesture they are making has done so far.
+#[derive(Debug, Default)]
+struct Input {
+    /// Id and last position of every pointer down, in insertion order.
+    pointers: Vec<(u64, (f32, f32))>,
+    dragging: bool,
+    /// Total travel of the gesture: under [`TAP_SLOP`] it was a tap.
+    moved: f32,
+    /// Finger spread and camera distance when a pinch began.
+    pinch_start: f32,
+    cam_start: f32,
+}
+
+impl Input {
+    fn press(&mut self, id: u64, at: (f32, f32), camera_distance: f32) {
+        if let Some(p) = self.pointers.iter_mut().find(|p| p.0 == id) {
+            p.1 = at;
+        } else {
+            self.pointers.push((id, at));
+        }
+        if self.pointers.len() == 2 {
+            self.pinch_start = spread(self.pointers[0].1, self.pointers[1].1);
+            self.cam_start = camera_distance;
+        }
+        self.dragging = true;
+        self.moved = 0.0;
+    }
+
+    /// The movement of pointer `id`, or `None` when it is not down.
+    fn moved_to(&mut self, id: u64, at: (f32, f32)) -> Option<(f32, f32)> {
+        let p = self.pointers.iter_mut().find(|p| p.0 == id)?;
+        let delta = (at.0 - p.1.0, at.1 - p.1.1);
+        p.1 = at;
+        self.moved += delta.0.abs() + delta.1.abs();
+        Some(delta)
+    }
+
+    fn release(&mut self, id: u64) {
+        self.pointers.retain(|p| p.0 != id);
+        if self.pointers.is_empty() {
+            self.dragging = false;
+        }
+        self.pinch_start = 0.0;
+    }
 }
 
 impl App {
@@ -49,6 +107,12 @@ impl App {
             world,
             sphere,
             attributes,
+            renderer: None,
+            planet: None,
+            camera: Camera::default(),
+            trackball: Trackball::default(),
+            input: Input::default(),
+            cursor: (0.0, 0.0),
         }
     }
 
@@ -96,6 +160,51 @@ impl App {
         });
     }
 
+    /// Physical pixels to the logical (CSS) pixels the prototype measures drags in.
+    fn to_logical(&self, x: f64, y: f64) -> (f32, f32) {
+        let scale = self.window.as_ref().map_or(1.0, |w| w.scale_factor());
+        ((x / scale) as f32, (y / scale) as f32)
+    }
+
+    fn pointer_pressed(&mut self, id: u64, at: (f32, f32)) {
+        self.input.press(id, at, self.camera.distance());
+        self.trackball.hold();
+    }
+
+    /// One pointer moved. Two pointers down is a pinch; one is a drag.
+    fn pointer_moved(&mut self, id: u64, at: (f32, f32)) {
+        if id == MOUSE {
+            self.cursor = at;
+        }
+        if !self.input.dragging {
+            return;
+        }
+        let Some((dx, dy)) = self.input.moved_to(id, at) else {
+            return;
+        };
+        if self.input.pointers.len() == 2 {
+            let now = spread(self.input.pointers[0].1, self.input.pointers[1].1);
+            self.camera
+                .pinch(self.input.cam_start, self.input.pinch_start, now);
+        } else {
+            self.trackball.drag(dx, dy);
+        }
+    }
+    /// Builds the renderer and uploads the planet, once the GPU exists.
+    fn ensure_scene(&mut self, gpu: &Gpu) {
+        if self.renderer.is_some() {
+            return;
+        }
+        let mut renderer = Renderer::new(&gpu.device, &gpu.queue, gpu.target_format());
+        self.planet = Some(Planet::new(
+            &mut renderer,
+            &gpu.device,
+            &gpu.queue,
+            self.sphere.clone(),
+            self.world.clone(),
+        ));
+        self.renderer = Some(renderer);
+    }
     fn redraw(&mut self) {
         let Some(window) = self.window.clone() else {
             return;
@@ -106,8 +215,35 @@ impl App {
         self.ensure_egui(&window, gpu);
         let info = self.hud_info(gpu);
 
+        self.ensure_scene(gpu);
+
+        // Inertia, idle drift and the surf all advance here, so one redraw is one frame.
+        self.trackball.step(false);
+        let (tw, th) = gpu.target_extent();
+        let aspect = tw as f32 / th as f32;
+        if let Some(renderer) = &self.renderer {
+            renderer.set_scene(
+                &gpu.queue,
+                &SceneUniform {
+                    view_proj: self.camera.view_proj(aspect),
+                    ..SceneUniform::default()
+                },
+            );
+        }
+        if let Some(planet) = &mut self.planet {
+            planet.animate(&gpu.queue, now_ms());
+            planet.set_model(&gpu.queue, self.trackball.model());
+        }
+
         let Some(mut frame) = gpu.frame() else { return };
-        frame.clear_target(CLEAR);
+        {
+            // The planet pass clears colour and depth. The space pass that will precede it is its
+            // own issue; until then the clear stands in for it.
+            let mut pass = frame.scene_pass(Some(CLEAR), true);
+            if let (Some(renderer), Some(planet)) = (&self.renderer, &self.planet) {
+                planet.draw(renderer, &mut pass);
+            }
+        }
         frame.blit();
 
         let egui = self.egui.as_mut().expect("created above");
@@ -169,8 +305,10 @@ impl App {
 
         if let HudAction::SetPixelScale(s) = action {
             gpu.set_pixel_scale(s);
-            window.request_redraw();
         }
+        // The surf steps and a flick decays on a clock, so the loop runs continuously, as the
+        // prototype's requestAnimationFrame does.
+        window.request_redraw();
     }
 }
 
@@ -228,6 +366,38 @@ impl ApplicationHandler for App {
                 let size = self.window.as_ref().map(|w| w.inner_size());
                 if let (Some(gpu), Some(size)) = (self.gpu.borrow_mut().as_mut(), size) {
                     gpu.resize(size.width, size.height, scale_factor);
+                }
+            }
+            WindowEvent::CursorMoved { position, .. } => {
+                let logical = self.to_logical(position.x, position.y);
+                self.pointer_moved(MOUSE, logical);
+            }
+            WindowEvent::MouseInput { state, button, .. } => {
+                if button == winit::event::MouseButton::Left {
+                    match state {
+                        ElementState::Pressed => self.pointer_pressed(MOUSE, self.cursor),
+                        ElementState::Released => self.input.release(MOUSE),
+                    }
+                }
+            }
+            WindowEvent::MouseWheel { delta, .. } => {
+                // Only the sign counts, as in the prototype, and winit's positive y is a scroll
+                // away from the user where the DOM's is toward it.
+                let y = match delta {
+                    MouseScrollDelta::LineDelta(_, y) => y,
+                    MouseScrollDelta::PixelDelta(p) => p.y as f32,
+                };
+                self.camera.wheel(-y);
+            }
+            WindowEvent::Touch(touch) => {
+                let at = self.to_logical(touch.location.x, touch.location.y);
+                let id = touch.id;
+                match touch.phase {
+                    winit::event::TouchPhase::Started => self.pointer_pressed(id, at),
+                    winit::event::TouchPhase::Moved => self.pointer_moved(id, at),
+                    winit::event::TouchPhase::Ended | winit::event::TouchPhase::Cancelled => {
+                        self.input.release(id);
+                    }
                 }
             }
             WindowEvent::RedrawRequested => self.redraw(),
