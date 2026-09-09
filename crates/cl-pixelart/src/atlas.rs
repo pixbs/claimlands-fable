@@ -7,13 +7,12 @@
 
 use cl_hexsphere::{Frames, HexSphere, facet_plane, texel_dir};
 use cl_model::world::{TILE_PX, UV_INSET};
-use cl_model::{RgbaImage, TileId, WorldSnapshot, hex_rgb};
+use cl_model::{Filter, RgbaImage, Texture, TileId, WorldSnapshot, Wrap, hex_rgb};
 use cl_noise::js::{cos, hypot2, pow, sin};
 use cl_noise::vec::dot;
 use cl_noise::{fbm3, hash3};
 
 use crate::palette::{GRASS_BANDS, MUD_BANDS, SEA_BANDS};
-use crate::strips::{Texture, Wrap};
 
 /// Octaves of the grass field; with [`GRASS_F0`] the patches come out about two tiles across.
 pub const GRASS_OCT: u32 = 4;
@@ -329,6 +328,7 @@ pub fn build_terrain_atlas(
             image: RgbaImage::new(cols * TILE_PX as u32, rows * TILE_PX as u32),
             wrap_s: Wrap::Clamp,
             wrap_t: Wrap::Clamp,
+            filter: Filter::Nearest,
             repeat: [1.0, 1.0],
         },
         cols,

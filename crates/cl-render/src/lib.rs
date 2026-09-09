@@ -2,9 +2,17 @@
 //! nearest sampling, exactly as the prototype renders at `1/pixelScale` and upscales the canvas.
 #![forbid(unsafe_code)]
 
+mod scene;
+
 use cl_noise::js::round;
 use wgpu::util::DeviceExt;
 
+pub use scene::{
+    AMBIENT_COLOR, AMBIENT_INTENSITY, Blend, Cull, DEPTH_FORMAT, Depth, DrawUniform,
+    FLAG_CLOUD_HOLE, FLAG_TEXTURED, FLAG_VERTEX_COLOR, GpuTexture, IDENTITY, Material,
+    MaterialDesc, Mesh, Renderer, SUN_COLOR, SUN_INTENSITY, SUN_POSITION, SceneUniform, Shading,
+    Topology, Vertex, light, vertices,
+};
 pub use wgpu::SurfaceTarget;
 
 /// Why the renderer could not start.
@@ -61,6 +69,7 @@ pub struct Gpu {
     pixel_scale: u32,
     target: wgpu::Texture,
     target_view: wgpu::TextureView,
+    depth_view: wgpu::TextureView,
     blit_pipeline: wgpu::RenderPipeline,
     blit_layout: wgpu::BindGroupLayout,
     blit_sampler: wgpu::Sampler,
@@ -212,6 +221,7 @@ impl Gpu {
         let (lw, lh) = logical_size(config.width, config.height, scale_factor);
         let (tw, th) = target_size(lw, lh, pixel_scale);
         let (target, target_view) = make_target(&device, tw, th);
+        let depth_view = make_depth(&device, tw, th);
         let blit_bind_group = make_bind_group(
             &device,
             &blit_layout,
@@ -228,6 +238,7 @@ impl Gpu {
             pixel_scale: pixel_scale.max(1),
             target,
             target_view,
+            depth_view,
             blit_pipeline,
             blit_layout,
             blit_sampler,
@@ -269,6 +280,11 @@ impl Gpu {
         (self.target.width(), self.target.height())
     }
 
+    /// Format of the low-resolution target: what a [`Renderer`] must be built for.
+    pub fn target_format(&self) -> wgpu::TextureFormat {
+        self.target.format()
+    }
+
     /// Swapchain format.
     pub fn surface_format(&self) -> wgpu::TextureFormat {
         self.config.format
@@ -283,6 +299,7 @@ impl Gpu {
         let (target, view) = make_target(&self.device, tw, th);
         self.target = target;
         self.target_view = view;
+        self.depth_view = make_depth(&self.device, tw, th);
         self.blit_bind_group = make_bind_group(
             &self.device,
             &self.blit_layout,
@@ -328,6 +345,27 @@ impl Gpu {
             encoder: Some(encoder),
         })
     }
+}
+
+/// The depth buffer of the low-resolution target. The prototype clears depth between its two
+/// passes rather than keeping two buffers.
+fn make_depth(device: &wgpu::Device, width: u32, height: u32) -> wgpu::TextureView {
+    device
+        .create_texture(&wgpu::TextureDescriptor {
+            label: Some("depth"),
+            size: wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: DEPTH_FORMAT,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        })
+        .create_view(&wgpu::TextureViewDescriptor::default())
 }
 
 fn make_target(
@@ -433,6 +471,57 @@ impl Frame<'_> {
         });
     }
 
+    /// Begins a pass on the low-resolution target and its depth buffer.
+    ///
+    /// The prototype draws its two passes into one buffer: space first with depth off, then
+    /// `renderer.clearDepth()`, then the planet. Pass `clear_color` on the first pass of a frame
+    /// and `clear_depth` on the one that starts the planet.
+    pub fn scene_pass(
+        &mut self,
+        clear_color: Option<[f64; 3]>,
+        clear_depth: bool,
+    ) -> wgpu::RenderPass<'static> {
+        let view = self.gpu.target_view.clone();
+        let depth = self.gpu.depth_view.clone();
+        let encoder = self.encoder();
+        encoder
+            .begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("scene"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    depth_slice: None,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: match clear_color {
+                            Some(c) => wgpu::LoadOp::Clear(wgpu::Color {
+                                r: c[0],
+                                g: c[1],
+                                b: c[2],
+                                a: 1.0,
+                            }),
+                            None => wgpu::LoadOp::Load,
+                        },
+                        store: wgpu::StoreOp::Store,
+                    },
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &depth,
+                    depth_ops: Some(wgpu::Operations {
+                        load: if clear_depth {
+                            wgpu::LoadOp::Clear(1.0)
+                        } else {
+                            wgpu::LoadOp::Load
+                        },
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                }),
+                timestamp_writes: None,
+                occlusion_query_set: None,
+                multiview_mask: None,
+            })
+            .forget_lifetime()
+    }
     /// Blits the target onto the swapchain (nearest, whole screen).
     pub fn blit(&mut self) {
         let view = self.surface_view.clone();

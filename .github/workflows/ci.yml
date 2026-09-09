@@ -55,7 +55,14 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-nextest
+      # Software Vulkan, so the headless render test in cl-render actually runs here.
+      - name: install lavapipe
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mesa-vulkan-drivers vulkan-tools
       - run: cargo nextest run --workspace --no-fail-fast
+        env:
+          WGPU_BACKEND: vulkan
 
   coverage:
     name: coverage (cl-rules)
