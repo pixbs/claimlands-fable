@@ -78,7 +78,7 @@ jobs:
           fi
       - name: comment
         if: github.event.pull_request.user.login != 'dependabot[bot]'
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v3
         with:
           header: policy
           path: comment.md
