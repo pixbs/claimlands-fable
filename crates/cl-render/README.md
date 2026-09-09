@@ -20,7 +20,7 @@ swapchain is sRGB the blit converts once so the hardware encode cancels it.
 | `Renderer::new(device, queue, format)` | Shader, layouts, scene uniform and the pipeline cache | ported |
 | `Renderer::upload_mesh`, `Renderer::upload_texture` | `MeshData` and `cl_model::Texture` onto the GPU, wrap and filter as the prototype sets them | ported |
 | `Renderer::material(desc, uniform, map)`, `Renderer::draw` | One material, one draw | ported |
-| `MaterialDesc` presets: `lambert`, `lambert_double_sided`, `unlit`, `border`, `halo`, `space` | the rows of the materials table | ported |
+| `MaterialDesc` presets: `lambert`, `lambert_double_sided`, `cloud`, `unlit`, `border`, `halo`, `space` | the rows of the materials table | ported |
 | Cloud sky texture and the halo image | `cl-pixelart`, issue M1 | issue M1 |
 | Picking helpers | raycast to tile | issue M1 |
 

@@ -187,6 +187,14 @@ impl MaterialDesc {
         }
     }
 
+    /// A cloud deck. The same pipeline as any double-sided lit mesh — what makes it a cloud is the
+    /// uniform: the deck tint in `color`, the Bayer alpha of its map, `alphaTest` at the dither
+    /// floor, and [`FLAG_CLOUD_HOLE`] with the see-through cap. Decks are drawn low to high, the
+    /// prototype's `renderOrder = k`.
+    pub fn cloud() -> Self {
+        Self::lambert_double_sided()
+    }
+
     /// Flat colour from both sides: the debug edges and the atmosphere.
     pub fn unlit() -> Self {
         Self {
@@ -724,6 +732,8 @@ mod tests {
         assert_eq!(MaterialDesc::space().depth, Depth::Off);
         assert_eq!(MaterialDesc::lambert_double_sided().cull, Cull::None);
         assert_eq!(MaterialDesc::lambert().shading, Shading::Lambert);
+        // A cloud deck is a double-sided lit mesh; the hole and the dither floor ride in the uniform.
+        assert_eq!(MaterialDesc::cloud(), MaterialDesc::lambert_double_sided());
     }
 
     #[test]
