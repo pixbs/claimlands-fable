@@ -457,6 +457,7 @@ dependencies = [
  "cl-model",
  "cl-noise",
  "image",
+ "libm",
  "serde_json",
 ]
 
