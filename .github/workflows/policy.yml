@@ -18,6 +18,8 @@ jobs:
         with:
           fetch-depth: 0
       - name: scrub known attribution footers from the PR body
+        # Dependabot-triggered runs hold a read-only token: they are checked but not edited.
+        if: github.event.pull_request.user.login != 'dependabot[bot]'
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
@@ -38,8 +40,12 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           TITLE: ${{ github.event.pull_request.title }}
           SKIP_CLOSES: ${{ github.event.pull_request.user.login == 'dependabot[bot]' && '1' || '0' }}
+          SKIP_BODY: ${{ github.event.pull_request.user.login == 'dependabot[bot]' && '1' || '0' }}
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
         run: |
           set +e
+          [ -f body.md ] || gh pr view "$PR" --json body -q .body > body.md
           {
             bash .github/policy/check.sh branch "$HEAD_REF"
             bash .github/policy/check.sh pr-title "$TITLE"
@@ -48,19 +54,30 @@ jobs:
           } > findings.txt 2>&1
           added=$(git diff --numstat "$BASE_SHA..$HEAD_SHA" -- . ':!fixtures/**' ':!**/snapshots/**' ':!Cargo.lock' ':!vendor/**' | awk '{s+=$1} END {print s+0}')
           echo "added=$added" >> "$GITHUB_OUTPUT"
-          if [ -s findings.txt ]; then echo "failed=true" >> "$GITHUB_OUTPUT"; cat findings.txt; else echo "failed=false" >> "$GITHUB_OUTPUT"; fi
+          if [ -s findings.txt ]; then
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+            cat findings.txt
+            {
+              echo "### policy: blocked"
+              echo '```'
+              head -c 6000 findings.txt
+              echo '```'
+              echo 'Fix: rename the branch (`git branch -m <type>/<issue>-<slug>`), reword commits (`git commit --amend` or `git rebase -i`), then force-push; edit the title or body on GitHub. Rules: `.github/policy/banned.txt`, `docs/workflow.md`.'
+            } > comment.md
+          else
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+            echo "### policy: ok" > comment.md
+          fi
+          if [ "$added" -gt 600 ]; then
+            echo "" >> comment.md
+            echo "Note: $added added lines outside fixtures and snapshots. Split into a stack if the review would benefit." >> comment.md
+          fi
       - name: comment
+        if: github.event.pull_request.user.login != 'dependabot[bot]'
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           header: policy
-          message: |
-            ${{ steps.check.outputs.failed == 'true' && '### policy: blocked' || '### policy: ok' }}
-            ${{ steps.check.outputs.failed == 'true' && '```' || '' }}
-            ${{ steps.check.outputs.failed == 'true' && '' || '' }}
-            ${{ steps.check.outputs.failed == 'true' && '(see the job log for the offending lines)' || '' }}
-            ${{ steps.check.outputs.failed == 'true' && '```' || '' }}
-            ${{ steps.check.outputs.failed == 'true' && 'Fix: rename the branch (`git branch -m <type>/<issue>-<slug>`), reword commits (`git rebase -i` or `git commit --amend`), and edit the title/body. Rules: `.github/policy/banned.txt`, `docs/workflow.md`.' || '' }}
-            ${{ steps.check.outputs.added > 600 && format('Note: {0} added lines outside fixtures and snapshots. Split into a stack if the review would benefit.', steps.check.outputs.added) || '' }}
+          path: comment.md
       - name: fail when findings exist
         if: steps.check.outputs.failed == 'true'
         run: exit 1

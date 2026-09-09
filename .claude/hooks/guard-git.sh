@@ -4,15 +4,18 @@
 # passes through untouched. Exit 2 blocks the tool call and shows the message to the agent.
 set -uo pipefail
 input="$(cat)"
-case "$input" in
-  *"git commit"*|*"gh pr create"*|*"gh pr edit"*|*"git checkout -b"*|*"git switch -c"*|*"git branch"*|*"git push"*|*"gh stack"*) ;;
+# Only the command text is judged; the rest of the payload (paths, session ids) is not.
+cmd="$(printf '%s' "$input" | grep -oE '"command":"([^"\\]|\\.)*"' | head -1)"
+[ -n "$cmd" ] || exit 0
+case "$cmd" in
+  *"git commit"*|*"gh pr create"*|*"gh pr edit"*|*"gh pr merge"*|*"git checkout -b"*|*"git switch -c"*|*"git branch"*|*"git push"*|*"gh stack"*) ;;
   *) exit 0 ;;
 esac
 root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 list="$root/.github/policy/banned.txt"
 [ -f "$list" ] || exit 0
 # Paths to this tool's own configuration are not attribution; drop them before scanning.
-scan="$(printf '%s' "$input" | sed -E 's#[^[:space:]"'"'"']*\.claude/[^[:space:]"'"'"']*##g; s#CLAUDE\.md##g')"
+scan="$(printf '%s' "$cmd" | sed -E 's#[^[:space:]"'"'"']*\.claude([/\\]|\\\\)[^[:space:]"'"'"']*##g; s#CLAUDE\.md##g')"
 while IFS= read -r pat; do
   case "$pat" in ''|'#'*) continue ;; esac
   pat="${pat#git }"

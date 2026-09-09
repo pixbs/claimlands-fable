@@ -80,6 +80,9 @@ case "${1:-}" in
     ;;
   pr-body-file)
     body="$(cat "$2")"
+    # SKIP_BODY=1 for automated dependency PRs: their bodies quote upstream release notes, and a
+    # squash merge never carries a body onto main. Title, branch and commits are still checked.
+    if [ "${SKIP_BODY:-0}" = 1 ]; then exit 0; fi
     scan "PR body" "$body"
     # SKIP_CLOSES=1 for automated dependency PRs, which have no issue to close.
     if [ "${SKIP_CLOSES:-0}" != 1 ] && ! printf '%s' "$body" | grep -qiE '(closes|fixes|resolves) #[0-9]+'; then
