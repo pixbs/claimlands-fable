@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc a7039015554adb586089b776b5c2d76489d7c2d12ab1cdfc879522df6291a05b # shrinks to level = Level { name: None, frequency: 2, seed: 0, players: 2, humans: [Red], ai: [], land_percent: 0, forest_percent: 0, victory: Majority { percent: 1, turns: 1 }, tiles: [TileDiff { from: 0, to: 0, terrain: None, cover: Some(Field), owner: None, unit: None }] }

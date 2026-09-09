@@ -1,0 +1,21 @@
+[package]
+name = "cl-rules"
+description = "The game as a pure state machine: state, commands, events, territories, economy, units, victory"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+cl-model = { workspace = true }
+cl-noise = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+
+[lints]
+workspace = true

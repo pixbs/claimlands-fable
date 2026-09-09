@@ -1,0 +1,51 @@
+name: Task
+description: Work that is neither a feature nor a bug (ports, tooling, refactors, CI)
+labels: ["type:task"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      multiple: true
+      options:
+        - cl-model
+        - cl-noise
+        - cl-hexsphere
+        - cl-worldgen
+        - cl-pixelart
+        - cl-scenery
+        - cl-rules
+        - cl-level
+        - cl-ai
+        - cl-session
+        - cl-render
+        - cl-ui
+        - cl-app
+        - xtask
+        - platforms
+        - docs
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Definition of done
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: refs
+    attributes:
+      label: References
+  - type: input
+    id: blocked
+    attributes:
+      label: Blocked by
+      description: Issue numbers this depends on, e.g. "#12 #15".

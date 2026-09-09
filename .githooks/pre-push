@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Refuses to push banned branch names or commits whose message or identity contains banned text.
+# Enabled by `cargo xtask setup` (git config core.hooksPath .githooks).
+set -euo pipefail
+root="$(git rev-parse --show-toplevel)"
+check="$root/.github/policy/check.sh"
+zero="0000000000000000000000000000000000000000"
+failed=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -z "$local_ref" ] && continue
+  [ "$local_sha" = "$zero" ] && continue   # deleting a remote branch
+  branch="${remote_ref#refs/heads/}"
+  bash "$check" branch "$branch" || failed=1
+  if [ "$remote_sha" = "$zero" ]; then
+    if git rev-parse --verify -q origin/main >/dev/null; then range="origin/main..$local_sha"; else range="$local_sha"; fi
+  else
+    range="$remote_sha..$local_sha"
+  fi
+  bash "$check" commits "$range" || failed=1
+done
+if [ "$failed" = 1 ]; then
+  echo "pre-push: fix the findings above (rename the branch or amend the commits), then push again" >&2
+  exit 1
+fi

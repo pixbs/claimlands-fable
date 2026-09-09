@@ -1,0 +1,29 @@
+# secrets: never commit; setup moves values into GitHub Actions secrets and deletes the file
+.env
+.env.*
+
+# build output
+/target
+/dist
+**/target/
+/platforms/android/app/src/main/jniLibs/
+/platforms/android/.gradle/
+/platforms/android/**/build/
+/platforms/android/local.properties
+/platforms/ios/*.xcodeproj
+/platforms/ios/build/
+/platforms/ios/DerivedData/
+/platforms/ios/rust-lib/
+
+# tool state
+/.gh-stack
+*.log
+.DS_Store
+Thumbs.db
+node_modules/
+/reference/harness/out/
+
+# editors
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,35 @@
+# xcodegen spec; `xcodegen generate` writes ClaimLands.xcodeproj (gitignored).
+name: ClaimLands
+options:
+  bundleIdPrefix: com.pixbs
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+targets:
+  ClaimLands:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.pixbs.claimlands
+        INFOPLIST_FILE: Sources/Info.plist
+        LIBRARY_SEARCH_PATHS: "$(SRCROOT)/rust-lib/$(PLATFORM_NAME)"
+        OTHER_LDFLAGS:
+          - "-lcl_app"
+          - "-lc++"
+          - "-framework"
+          - UIKit
+          - "-framework"
+          - Metal
+          - "-framework"
+          - QuartzCore
+        ENABLE_BITCODE: "NO"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: "NO"
+    preBuildScripts:
+      - name: Build Rust library
+        script: bash "$SRCROOT/build-rust.sh"
+        outputFiles:
+          - "$(SRCROOT)/rust-lib/$(PLATFORM_NAME)/libcl_app.a"

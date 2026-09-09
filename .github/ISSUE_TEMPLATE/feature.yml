@@ -1,0 +1,67 @@
+name: Feature
+description: A new capability of the game or the tooling
+labels: ["type:feat"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What the player, reviewer or agent can do afterwards, and why it matters.
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      description: Crates this touches.
+      multiple: true
+      options:
+        - cl-model
+        - cl-noise
+        - cl-hexsphere
+        - cl-worldgen
+        - cl-pixelart
+        - cl-scenery
+        - cl-rules
+        - cl-level
+        - cl-ai
+        - cl-session
+        - cl-render
+        - cl-ui
+        - cl-app
+        - xtask
+        - platforms
+        - docs
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Checkable statements; the PR is done when every box is true.
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Tests to add
+      description: Unit, property, snapshot or fixture tests, by name or fixture file.
+    validations:
+      required: true
+  - type: textarea
+    id: out
+    attributes:
+      label: Out of scope
+      description: What this issue deliberately leaves to other issues.
+  - type: textarea
+    id: refs
+    attributes:
+      label: References
+      description: Rule ids (R-ECO-03), prototype line ranges (hex-planet.html 1101–1130), ADRs, fixtures.
+  - type: input
+    id: blocked
+    attributes:
+      label: Blocked by
+      description: Issue numbers this depends on, e.g. "#12 #15". Converted to native dependencies.

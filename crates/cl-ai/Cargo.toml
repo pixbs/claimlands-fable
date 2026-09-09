@@ -1,0 +1,18 @@
+[package]
+name = "cl-ai"
+description = "AI players: a profile (hostility, intelligence tier) and a policy that picks the next command"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+cl-model = { workspace = true }
+cl-rules = { workspace = true }
+cl-noise = { workspace = true }
+serde = { workspace = true }
+
+[lints]
+workspace = true

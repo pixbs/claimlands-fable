@@ -1,0 +1,21 @@
+[package]
+name = "cl-worldgen"
+description = "Seeded continents and initial cover for a hex-sphere world, ported from the prototype"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+cl-model = { workspace = true }
+cl-hexsphere = { workspace = true }
+cl-noise = { workspace = true }
+libm = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

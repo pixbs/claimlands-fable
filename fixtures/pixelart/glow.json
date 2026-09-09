@@ -1,0 +1,1 @@
+{"texture":{"wrapS":null,"wrapT":null,"magFilter":"LinearFilter","minFilter":"LinearFilter","generateMipmaps":true,"repeat":{"x":1,"y":1},"offset":{"x":0,"y":0}},"material":{"map":"<texture>","transparent":true,"depthWrite":false,"side":"DoubleSide"},"renderOrder":-1}

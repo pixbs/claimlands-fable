@@ -1,0 +1,24 @@
+[package]
+name = "cl-scenery"
+description = "Procedural meshes from a world snapshot: terrain, cliffs, surf, fields, forests, villages, clouds, atmosphere, borders, space"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+cl-model = { workspace = true }
+cl-hexsphere = { workspace = true }
+cl-noise = { workspace = true }
+cl-pixelart = { workspace = true }
+libm = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,55 @@
+name: Bug
+description: Something behaves differently from the rules, the prototype or the docs
+labels: ["type:bug"]
+body:
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+      description: Cite the rule id, the prototype behaviour or the doc that defines it.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: Level string plus command log, or seed plus steps, or the preview URL and what to click.
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      multiple: true
+      options:
+        - cl-model
+        - cl-noise
+        - cl-hexsphere
+        - cl-worldgen
+        - cl-pixelart
+        - cl-scenery
+        - cl-rules
+        - cl-level
+        - cl-ai
+        - cl-session
+        - cl-render
+        - cl-ui
+        - cl-app
+        - xtask
+        - platforms
+        - docs
+    validations:
+      required: true
+  - type: textarea
+    id: test
+    attributes:
+      label: Regression test to add
+      description: The test that fails before the fix and passes after.
+    validations:
+      required: true

@@ -1,0 +1,7 @@
+/*
+  Cache-Control: no-cache
+  X-Content-Type-Options: nosniff
+  Cross-Origin-Resource-Policy: same-origin
+
+/*.wasm
+  Content-Type: application/wasm

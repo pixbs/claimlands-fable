@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Drops attribution trailers from the commit message, then refuses any remaining banned text.
+# Enabled by `cargo xtask setup` (git config core.hooksPath .githooks).
+set -euo pipefail
+root="$(git rev-parse --show-toplevel)"
+check="$root/.github/policy/check.sh"
+bash "$check" sanitize-msg "$1" || true
+if ! bash "$check" commit-msg-file "$1"; then
+  echo "commit-msg: the message contains banned text (see .github/policy/banned.txt); edit it and retry" >&2
+  exit 1
+fi

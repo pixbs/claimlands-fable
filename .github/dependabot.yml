@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      rust-deps:
+        patterns: ["*"]
+    labels: ["deps", "type:chore"]
+    commit-message:
+      prefix: "chore(deps)"
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    labels: ["deps", "type:chore"]
+    commit-message:
+      prefix: "ci(deps)"

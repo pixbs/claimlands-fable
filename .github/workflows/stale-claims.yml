@@ -1,0 +1,33 @@
+name: stale-claims
+
+# An issue claimed (assigned) more than 24 hours ago with no open pull request that closes it is
+# released, so an abandoned agent never holds a lock on work.
+on:
+  schedule:
+    - cron: "30 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: unassign stale claims
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          now=$(date -u +%s)
+          gh issue list --repo "$GITHUB_REPOSITORY" --state open --label ready --limit 200 --json number,assignees,updatedAt \
+            -q '.[] | select(.assignees | length > 0) | "\(.number) \(.updatedAt) \(.assignees[0].login)"' |
+          while read -r number updated login; do
+            age=$(( now - $(date -u -d "$updated" +%s) ))
+            [ "$age" -lt 86400 ] && continue
+            linked=$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --search "closes #$number OR fixes #$number OR resolves #$number" --json number -q 'length')
+            if [ "$linked" = "0" ]; then
+              gh issue edit "$number" --repo "$GITHUB_REPOSITORY" --remove-assignee "$login"
+              gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "Released: claimed by @$login for over 24 hours without an open pull request. Take it again with \`cargo xtask take $number\` when you are ready to work on it."
+            fi
+          done

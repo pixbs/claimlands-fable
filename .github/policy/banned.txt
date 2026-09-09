@@ -1,0 +1,19 @@
+# Patterns that must never appear in this repository's git history, branch names, pull-request
+# titles or bodies, or tracked text files. One extended regular expression per line, matched
+# case-insensitively. A line may start with a scope:
+#   git  - applies to commit messages, identities, branch names and PR text only
+#   (no scope) - applies everywhere, including tracked files (cargo xtask lint-repo)
+# Consumers: .github/policy/check.sh (CI and git hooks), xtask/src/lint.rs, .claude/hooks/guard-git.sh.
+\bclaude\b
+\bcodex\b
+\bkimi\b
+\banthropic\b
+\bopenai\b
+\bchatgpt\b
+\bgpt-?[0-9]
+\bcopilot\b
+\bgemini\b
+noreply@anthropic
+git co-authored-by:.*(bot|ai|assistant|agent|llm)
+git generated (with|by)
+git ^🤖

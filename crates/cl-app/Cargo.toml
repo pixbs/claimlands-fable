@@ -1,0 +1,42 @@
+[package]
+name = "cl-app"
+description = "The game application: winit shell, input, scene sync, animation, and the web/Android/iOS entry points"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib", "staticlib"]
+
+[dependencies]
+cl-model = { workspace = true }
+cl-hexsphere = { workspace = true }
+cl-worldgen = { workspace = true }
+cl-render = { workspace = true }
+cl-ui = { workspace = true }
+winit = { workspace = true }
+wgpu = { workspace = true }
+egui = { workspace = true }
+egui-wgpu = { workspace = true }
+egui-winit = { workspace = true }
+log = { workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = { workspace = true }
+wasm-bindgen-futures = { workspace = true }
+web-sys = { workspace = true, features = ["Window", "Document", "Element", "HtmlCanvasElement", "CssStyleDeclaration"] }
+console_error_panic_hook = { workspace = true }
+console_log = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+pollster = { workspace = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+android-activity = { workspace = true }
+android_logger = { workspace = true }
+
+[lints]
+workspace = true

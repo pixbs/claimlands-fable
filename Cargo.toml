@@ -1,0 +1,138 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "xtask"]
+exclude = ["vendor/*"]
+
+# Patched upstream crates; see vendor/README.md for the reason and the removal condition.
+[patch.crates-io]
+egui-winit = { path = "vendor/egui-winit" }
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.98"
+license = "CC-BY-NC-SA-4.0"
+repository = "https://github.com/pixbs/claimlands-fable"
+publish = false
+
+[workspace.dependencies]
+# internal
+cl-model = { path = "crates/cl-model" }
+cl-noise = { path = "crates/cl-noise" }
+cl-hexsphere = { path = "crates/cl-hexsphere" }
+cl-worldgen = { path = "crates/cl-worldgen" }
+cl-pixelart = { path = "crates/cl-pixelart" }
+cl-scenery = { path = "crates/cl-scenery" }
+cl-rules = { path = "crates/cl-rules" }
+cl-level = { path = "crates/cl-level" }
+cl-ai = { path = "crates/cl-ai" }
+cl-session = { path = "crates/cl-session" }
+cl-render = { path = "crates/cl-render" }
+cl-ui = { path = "crates/cl-ui" }
+cl-app = { path = "crates/cl-app" }
+
+# core (deterministic, engine-free)
+libm = "0.2.16"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.151", features = ["float_roundtrip"] }
+thiserror = "2.0.20"
+rand_xoshiro = "0.8.1"
+sha2 = "0.11.0"
+hex = "0.4.3"
+log = "0.4.34"
+
+# rendering / platform
+wgpu = { version = "30.0.1", features = ["webgl"] }
+winit = { version = "0.30.13", default-features = false, features = ["rwh_06", "x11", "android-game-activity"] }
+egui = { version = "0.36.2", default-features = false, features = ["default_fonts"] }
+egui-wgpu = { version = "0.36.2", features = ["winit"] }
+egui-winit = { version = "0.36.2", default-features = false }
+glam = "0.33.7"
+bytemuck = { version = "1.25.2", features = ["derive"] }
+raw-window-handle = "0.6.2"
+pollster = "1.0.1"
+
+# web
+wasm-bindgen = "0.2.128"
+wasm-bindgen-futures = "0.4.78"
+web-sys = "0.3.105"
+js-sys = "0.3.105"
+console_error_panic_hook = "0.1.7"
+console_log = "1.1.0"
+
+# android
+android-activity = { version = "0.6.1", features = ["game-activity"] }
+android_logger = "0.15.1"
+
+# tests
+insta = { version = "1.48.0", features = ["json"] }
+proptest = "1.11.0"
+image = { version = "0.25.10", default-features = false, features = ["png"] }
+
+# xtask
+anyhow = "1.0.104"
+clap = { version = "4.6.6", features = ["derive"] }
+xshell = "0.2.7"
+cargo_metadata = "0.23.1"
+regex = "1.13.1"
+walkdir = "2.5.0"
+toml = "1.1.5"
+tiny_http = "0.12.0"
+semver = "1.0.28"
+
+[workspace.lints.rust]
+missing_docs = "warn"
+unused_qualifications = "warn"
+unsafe_op_in_unsafe_fn = "deny"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+# hard rules
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+print_stdout = "warn"
+print_stderr = "warn"
+# math-heavy ports: these pedantic lints only add noise to faithful translations of the prototype
+cast_precision_loss = "allow"
+cast_possible_truncation = "allow"
+cast_possible_wrap = "allow"
+cast_sign_loss = "allow"
+cast_lossless = "allow"
+float_cmp = "allow"
+many_single_char_names = "allow"
+similar_names = "allow"
+too_many_lines = "allow"
+unreadable_literal = "allow"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+doc_markdown = "allow"
+struct_excessive_bools = "allow"
+suboptimal_flops = "allow"
+manual_midpoint = "allow"   # ports keep the prototype's (a + b) / 2 as written
+# style-only pedantic lints that add noise without catching defects
+semicolon_if_nothing_returned = "allow"
+single_match_else = "allow"
+default_trait_access = "allow"
+redundant_closure_for_method_calls = "allow"
+items_after_statements = "allow"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.test]
+opt-level = 2

@@ -1,0 +1,34 @@
+name: Design question
+description: A decision only the owner can make; blocks the issues that depend on the answer
+labels: ["type:question", "needs-design"]
+assignees: ["pixbs"]
+body:
+  - type: textarea
+    id: decision
+    attributes:
+      label: Decision needed
+    validations:
+      required: true
+  - type: textarea
+    id: options
+    attributes:
+      label: Options and consequences
+      value: |
+        1.
+        2.
+    validations:
+      required: true
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed default
+      description: What the code does until the decision lands.
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Recorded in
+      description: The docs/design file and section that will carry the answer.
+    validations:
+      required: true

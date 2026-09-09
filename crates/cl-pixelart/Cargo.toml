@@ -1,0 +1,22 @@
+[package]
+name = "cl-pixelart"
+description = "CPU pixel-art texture synthesis: strips, ground atlas, cloud sky, glow, and the prototype palette"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+cl-model = { workspace = true }
+cl-hexsphere = { workspace = true }
+cl-noise = { workspace = true }
+libm = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+image = { workspace = true }
+
+[lints]
+workspace = true

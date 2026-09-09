@@ -1,0 +1,54 @@
+name: preview
+
+# Deploys the real web build of every pull request (branch preview) and of main (production)
+# to Cloudflare Pages, and posts the URL on the PR.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  deployments: write
+  pull-requests: write
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.98.1
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - run: sudo apt-get install -y --no-install-recommends binaryen
+      - run: cargo xtask web
+      - name: deploy to Cloudflare Pages
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=claimlands-fable --branch=${{ github.head_ref || 'main' }} --commit-hash=${{ github.event.pull_request.head.sha || github.sha }}
+      - name: post the preview link
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: preview
+          message: |
+            ### preview
+            Game: ${{ steps.deploy.outputs.deployment-url }}
+            Prototype for A/B: ${{ steps.deploy.outputs.deployment-url }}/reference/
+            Branch alias: ${{ steps.deploy.outputs.pages-deployment-alias-url }}
+            Commit `${{ github.event.pull_request.head.sha }}`
+      - name: summary
+        run: echo "deployed ${{ steps.deploy.outputs.deployment-url }}" >> "$GITHUB_STEP_SUMMARY"

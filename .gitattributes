@@ -1,0 +1,8 @@
+* text=auto eol=lf
+*.png binary
+*.jar binary
+*.wasm binary
+*.sh text eol=lf
+gradlew text eol=lf
+fixtures/** linguist-generated=true
+reference/hex-planet.html linguist-documentation=true

@@ -1,0 +1,21 @@
+[package]
+name = "cl-render"
+description = "wgpu renderer: pixel-scaled offscreen target, nearest blit, mesh and texture upload, materials matching the prototype"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+cl-model = { workspace = true }
+cl-noise = { workspace = true }
+wgpu = { workspace = true }
+bytemuck = { workspace = true }
+glam = { workspace = true }
+log = { workspace = true }
+thiserror = { workspace = true }
+
+[lints]
+workspace = true

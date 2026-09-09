@@ -1,0 +1,24 @@
+[package]
+name = "cl-session"
+description = "Match orchestration: players, turn flow, undo within a turn, command log, replay, statistics"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+cl-model = { workspace = true }
+cl-rules = { workspace = true }
+cl-ai = { workspace = true }
+cl-level = { workspace = true }
+cl-hexsphere = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

@@ -1,0 +1,33 @@
+# Determinism rules (docs/design/porting.md). Generation math must give identical bits on iOS,
+# Android, web and CI, so platform libm is banned in favour of the `libm` crate, and hash-ordered
+# collections are banned because their iteration order changes between runs.
+disallowed-methods = [
+  { path = "f64::sin", reason = "use libm::sin (cross-platform determinism)" },
+  { path = "f64::cos", reason = "use libm::cos" },
+  { path = "f64::tan", reason = "use libm::tan" },
+  { path = "f64::asin", reason = "use libm::asin" },
+  { path = "f64::acos", reason = "use libm::acos" },
+  { path = "f64::atan", reason = "use libm::atan" },
+  { path = "f64::atan2", reason = "use libm::atan2" },
+  { path = "f64::exp", reason = "use libm::exp" },
+  { path = "f64::ln", reason = "use libm::log" },
+  { path = "f64::log2", reason = "use libm::log2" },
+  { path = "f64::log10", reason = "use libm::log10" },
+  { path = "f64::powf", reason = "use libm::pow" },
+  { path = "f64::powi", reason = "use libm::pow or explicit multiplication" },
+  { path = "f64::hypot", reason = "use cl_noise::js::hypot3 / hypot2 (V8-compatible)" },
+  { path = "f64::cbrt", reason = "use libm::cbrt" },
+  { path = "f64::round", reason = "use cl_noise::js::round (JS Math.round semantics)" },
+  { path = "f32::sin", reason = "use libm::sinf" },
+  { path = "f32::cos", reason = "use libm::cosf" },
+  { path = "f32::atan2", reason = "use libm::atan2f" },
+  { path = "f32::powf", reason = "use libm::powf" },
+  { path = "f32::hypot", reason = "use libm::hypotf" },
+  { path = "std::time::SystemTime::now", reason = "time comes from the platform adapter in cl-app" },
+]
+disallowed-types = [
+  { path = "std::collections::HashMap", reason = "iteration order is randomised; use BTreeMap or Vec" },
+  { path = "std::collections::HashSet", reason = "iteration order is randomised; use BTreeSet or Vec" },
+]
+too-many-arguments-threshold = 12
+type-complexity-threshold = 400
