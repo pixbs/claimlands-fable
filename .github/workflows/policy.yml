@@ -54,6 +54,12 @@ jobs:
           } > findings.txt 2>&1
           added=$(git diff --numstat "$BASE_SHA..$HEAD_SHA" -- . ':!fixtures/**' ':!**/snapshots/**' ':!Cargo.lock' ':!vendor/**' | awk '{s+=$1} END {print s+0}')
           echo "added=$added" >> "$GITHUB_OUTPUT"
+          {
+            echo "findings<<POLICY_EOF"
+            head -c 6000 findings.txt
+            echo
+            echo "POLICY_EOF"
+          } >> "$GITHUB_OUTPUT"
           if [ -s findings.txt ]; then echo "failed=true" >> "$GITHUB_OUTPUT"; cat findings.txt; else echo "failed=false" >> "$GITHUB_OUTPUT"; fi
       - name: comment
         if: github.event.pull_request.user.login != 'dependabot[bot]'
@@ -62,11 +68,9 @@ jobs:
           header: policy
           message: |
             ${{ steps.check.outputs.failed == 'true' && '### policy: blocked' || '### policy: ok' }}
-            ${{ steps.check.outputs.failed == 'true' && '```' || '' }}
-            ${{ steps.check.outputs.failed == 'true' && '' || '' }}
-            ${{ steps.check.outputs.failed == 'true' && '(see the job log for the offending lines)' || '' }}
-            ${{ steps.check.outputs.failed == 'true' && '```' || '' }}
-            ${{ steps.check.outputs.failed == 'true' && 'Fix: rename the branch (`git branch -m <type>/<issue>-<slug>`), reword commits (`git rebase -i` or `git commit --amend`), and edit the title/body. Rules: `.github/policy/banned.txt`, `docs/workflow.md`.' || '' }}
+            ${{ steps.check.outputs.failed == 'true' && format('```{0}{1}{0}```', '
+', steps.check.outputs.findings) || '' }}
+            ${{ steps.check.outputs.failed == 'true' && 'Fix: rename the branch (`git branch -m <type>/<issue>-<slug>`), reword commits (`git commit --amend` or `git rebase -i`), then force-push; edit the title or body on GitHub. Rules: `.github/policy/banned.txt`, `docs/workflow.md`.' || '' }}
             ${{ steps.check.outputs.added > 600 && format('Note: {0} added lines outside fixtures and snapshots. Split into a stack if the review would benefit.', steps.check.outputs.added) || '' }}
       - name: fail when findings exist
         if: steps.check.outputs.failed == 'true'
