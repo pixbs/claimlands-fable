@@ -38,4 +38,7 @@ android {
 dependencies {
     // Must stay in step with the GameActivity version bundled by the `android-activity` crate.
     implementation("androidx.games:games-activity:3.0.5")
+    // GameActivity's supertypes; the Kotlin compiler needs them on the classpath explicitly.
+    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("androidx.core:core-ktx:1.13.1")
 }
