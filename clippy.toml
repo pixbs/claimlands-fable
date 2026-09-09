@@ -1,9 +1,13 @@
 # Determinism rules (docs/design/porting.md). Generation math must give identical bits on iOS,
 # Android, web and CI, so platform libm is banned in favour of the `libm` crate, and hash-ordered
-# collections are banned because their iteration order changes between runs.
+# collections are banned because their iteration order changes between runs. `sin`, `cos` and `pow`
+# come from `cl_noise::js`, which reproduces V8's fdlibm; `libm`'s own three round differently.
 disallowed-methods = [
-  { path = "f64::sin", reason = "use libm::sin (cross-platform determinism)" },
-  { path = "f64::cos", reason = "use libm::cos" },
+  { path = "f64::sin", reason = "use cl_noise::js::sin (V8-exact, cross-platform)" },
+  { path = "f64::cos", reason = "use cl_noise::js::cos" },
+  { path = "libm::sin", reason = "use cl_noise::js::sin; libm differs from V8 in the last bit" },
+  { path = "libm::cos", reason = "use cl_noise::js::cos; libm differs from V8 in the last bit" },
+  { path = "libm::pow", reason = "use cl_noise::js::pow; libm differs from V8 in the last bit" },
   { path = "f64::tan", reason = "use libm::tan" },
   { path = "f64::asin", reason = "use libm::asin" },
   { path = "f64::acos", reason = "use libm::acos" },
@@ -13,8 +17,8 @@ disallowed-methods = [
   { path = "f64::ln", reason = "use libm::log" },
   { path = "f64::log2", reason = "use libm::log2" },
   { path = "f64::log10", reason = "use libm::log10" },
-  { path = "f64::powf", reason = "use libm::pow" },
-  { path = "f64::powi", reason = "use libm::pow or explicit multiplication" },
+  { path = "f64::powf", reason = "use cl_noise::js::pow" },
+  { path = "f64::powi", reason = "use cl_noise::js::pow or explicit multiplication" },
   { path = "f64::hypot", reason = "use cl_noise::js::hypot3 / hypot2 (V8-compatible)" },
   { path = "f64::cbrt", reason = "use libm::cbrt" },
   { path = "f64::round", reason = "use cl_noise::js::round (JS Math.round semantics)" },

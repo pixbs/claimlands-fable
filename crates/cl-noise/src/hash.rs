@@ -1,12 +1,12 @@
 //! The prototype's hashes and noise, operation for operation.
 
-use crate::js::{to_int32, ushr};
+use crate::js::{sin, to_int32, ushr};
 use crate::vec::V3;
 
 /// `hash2(x, y)`: sine-based hash in `[0, 1)`. Used for the cliff strata, the surf shape and the
 /// coast wall UV phase.
 pub fn hash2(x: f64, y: f64) -> f64 {
-    let s = libm::sin(x * 127.1 + y * 311.7) * 43758.5453;
+    let s = sin(x * 127.1 + y * 311.7) * 43758.5453;
     s - s.floor()
 }
 

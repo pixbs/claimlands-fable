@@ -12,9 +12,6 @@ use cl_pixelart::palette::{
 use cl_pixelart::{Wrap, make_cliff_texture, make_field_texture, make_foam_texture};
 use serde_json::Value;
 
-/// Texels allowed to differ in strips that sample `hash2` (`sin` drift, see cl-noise tests).
-const HASH2_TEXEL_BUDGET: usize = 2;
-
 fn fixture_path(rel: &str) -> PathBuf {
     [env!("CARGO_MANIFEST_DIR"), "..", "..", "fixtures", rel]
         .iter()
@@ -58,14 +55,10 @@ fn wrap_of(v: &Value) -> Wrap {
 }
 
 #[test]
-fn cliff_strip_matches_prototype() {
+fn cliff_strip_matches_prototype_exactly() {
     let tex = make_cliff_texture();
     let diff = differing_texels(&tex.image, &png("pixelart/cliff.png"));
-    assert!(
-        diff.len() <= HASH2_TEXEL_BUDGET,
-        "{} cliff texels differ: {diff:?}",
-        diff.len()
-    );
+    assert!(diff.is_empty(), "cliff texels differ: {diff:?}");
     let meta = json("pixelart/cliff.json");
     assert_eq!(tex.wrap_s, wrap_of(&meta["wrapS"]));
     assert_eq!(tex.wrap_t, wrap_of(&meta["wrapT"]));
@@ -74,14 +67,10 @@ fn cliff_strip_matches_prototype() {
 }
 
 #[test]
-fn foam_sheet_matches_prototype() {
+fn foam_sheet_matches_prototype_exactly() {
     let tex = make_foam_texture();
     let diff = differing_texels(&tex.image, &png("pixelart/foam.png"));
-    assert!(
-        diff.len() <= HASH2_TEXEL_BUDGET,
-        "{} foam texels differ: {diff:?}",
-        diff.len()
-    );
+    assert!(diff.is_empty(), "foam texels differ: {diff:?}");
     let meta = json("pixelart/foam.json");
     assert_eq!(tex.wrap_s, wrap_of(&meta["wrapS"]));
     assert_eq!(tex.wrap_t, wrap_of(&meta["wrapT"]));
