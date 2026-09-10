@@ -470,6 +470,7 @@ dependencies = [
  "cl-noise",
  "glam",
  "log",
+ "pollster",
  "thiserror 2.0.20",
  "wgpu",
 ]

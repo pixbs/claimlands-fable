@@ -1,7 +1,7 @@
 //! The cliff, surf and field strips: small sprites drawn per texel so they are true pixel art,
 //! prototype section 2 and the field texture of section 4b.
 
-use cl_model::{RgbaImage, hex_rgb};
+use cl_model::{Filter, RgbaImage, Texture, Wrap, hex_rgb};
 use cl_noise::hash2;
 use cl_noise::js::{round, sin};
 
@@ -25,29 +25,6 @@ pub const FOAM_FRAMES: u32 = 8;
 pub const FURROW_PX: u32 = 5;
 /// Rows of the field strip: the flat top and the side, per crop.
 pub const FIELD_ROWS: u32 = FIELD_CROPS.len() as u32 * 2;
-
-/// How a texture axis wraps.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Wrap {
-    /// Clamp to edge.
-    Clamp,
-    /// Repeat.
-    Repeat,
-}
-
-/// An image plus the sampler settings the prototype's `pixelTexture` sets: nearest filtering, no
-/// mipmaps, and the given wrap modes.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Texture {
-    /// Texels.
-    pub image: RgbaImage,
-    /// Horizontal wrap.
-    pub wrap_s: Wrap,
-    /// Vertical wrap.
-    pub wrap_t: Wrap,
-    /// UV repeat factors (`texture.repeat` in three.js).
-    pub repeat: [f64; 2],
-}
 
 fn put(img: &mut RgbaImage, x: u32, y: u32, c: [u8; 3]) {
     img.put(x, y, [c[0], c[1], c[2], 255]);
@@ -74,6 +51,7 @@ pub fn make_cliff_texture() -> Texture {
         image: img,
         wrap_s: Wrap::Repeat,
         wrap_t: Wrap::Repeat,
+        filter: Filter::Nearest,
         repeat: [1.0, 1.0],
     }
 }
@@ -112,6 +90,7 @@ pub fn make_foam_texture() -> Texture {
         image: img,
         wrap_s: Wrap::Repeat,
         wrap_t: Wrap::Clamp,
+        filter: Filter::Nearest,
         repeat: [1.0, 1.0 / f64::from(FOAM_FRAMES)],
     }
 }
@@ -145,6 +124,7 @@ pub fn make_field_texture() -> Texture {
         image: img,
         wrap_s: Wrap::Repeat,
         wrap_t: Wrap::Clamp,
+        filter: Filter::Nearest,
         repeat: [1.0, 1.0],
     }
 }

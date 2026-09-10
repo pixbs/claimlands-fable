@@ -60,6 +60,42 @@ pub fn hex_rgb(hex: &str) -> [u8; 3] {
     [byte(1), byte(3), byte(5)]
 }
 
+/// How a texture axis wraps outside `0..1`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Wrap {
+    /// Clamp to edge.
+    Clamp,
+    /// Repeat.
+    Repeat,
+}
+
+/// How a texture is sampled between texels.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Filter {
+    /// Nearest: what every pixel-art texture uses.
+    #[default]
+    Nearest,
+    /// Linear: only the halo, whose gradient must not band.
+    Linear,
+}
+
+/// An image plus the sampler settings the prototype's `pixelTexture` sets: nearest filtering, no
+/// mipmaps, and the given wrap modes. It lives here rather than in `cl-pixelart` because the crate
+/// that draws the texels and the crate that uploads them both have to name it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Texture {
+    /// Texels.
+    pub image: RgbaImage,
+    /// Horizontal wrap.
+    pub wrap_s: Wrap,
+    /// Vertical wrap.
+    pub wrap_t: Wrap,
+    /// Minification and magnification filter.
+    pub filter: Filter,
+    /// UV repeat factors (`texture.repeat` in three.js).
+    pub repeat: [f64; 2],
+}
+
 #[cfg(test)]
 #[allow(clippy::pedantic)]
 mod tests {

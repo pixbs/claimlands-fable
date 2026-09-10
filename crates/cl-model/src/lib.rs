@@ -12,6 +12,6 @@ pub mod world;
 
 pub use board::{Board, GraphBoard};
 pub use faction::Faction;
-pub use image::{RgbaImage, hex_rgb};
+pub use image::{Filter, RgbaImage, Texture, Wrap, hex_rgb};
 pub use mesh::MeshData;
 pub use tile::{Cover, Terrain, TileId, TileState, UnitKind, UnitView, WorldSnapshot};
