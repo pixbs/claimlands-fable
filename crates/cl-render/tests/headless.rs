@@ -8,8 +8,8 @@
 
 use cl_model::{Filter, MeshData, RgbaImage, Texture, Wrap};
 use cl_render::{
-    DEPTH_FORMAT, DrawUniform, FLAG_TEXTURED, FLAG_VERTEX_COLOR, IDENTITY, MaterialDesc, Renderer,
-    SceneUniform,
+    DEPTH_FORMAT, DrawUniform, FLAG_SCREEN, FLAG_TEXTURED, FLAG_VERTEX_COLOR, IDENTITY, Material,
+    MaterialDesc, Mesh, Renderer, SceneUniform,
 };
 
 const SIZE: u32 = 64;
@@ -102,6 +102,70 @@ fn read_back(h: &Headless, target: &wgpu::Texture) -> RgbaImage {
     image
 }
 
+/// Draws `mesh` with `material` into a black `SIZE` × `SIZE` target and reads the target back.
+fn render_once(h: &Headless, renderer: &Renderer, material: &Material, mesh: &Mesh) -> RgbaImage {
+    let extent = wgpu::Extent3d {
+        width: SIZE,
+        height: SIZE,
+        depth_or_array_layers: 1,
+    };
+    let target = h.device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("target"),
+        size: extent,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: FORMAT,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+        view_formats: &[],
+    });
+    let view = target.create_view(&wgpu::TextureViewDescriptor::default());
+    let depth = h
+        .device
+        .create_texture(&wgpu::TextureDescriptor {
+            label: Some("depth"),
+            size: extent,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: DEPTH_FORMAT,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        })
+        .create_view(&wgpu::TextureViewDescriptor::default());
+    let mut encoder = h
+        .device
+        .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+    {
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("scene"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &depth,
+                depth_ops: Some(wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(1.0),
+                    store: wgpu::StoreOp::Store,
+                }),
+                stencil_ops: None,
+            }),
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+        renderer.draw(&mut pass, material, mesh);
+    }
+    h.queue.submit([encoder.finish()]);
+    read_back(h, &target)
+}
+
 #[test]
 fn one_frame_renders_the_prototype_lambert_formula() {
     let Some(h) = headless() else {
@@ -143,70 +207,7 @@ fn one_frame_renders_the_prototype_lambert_formula() {
     };
     renderer.set_scene(&h.queue, &scene);
 
-    let target = h.device.create_texture(&wgpu::TextureDescriptor {
-        label: Some("target"),
-        size: wgpu::Extent3d {
-            width: SIZE,
-            height: SIZE,
-            depth_or_array_layers: 1,
-        },
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: wgpu::TextureDimension::D2,
-        format: FORMAT,
-        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
-        view_formats: &[],
-    });
-    let view = target.create_view(&wgpu::TextureViewDescriptor::default());
-    let depth = h
-        .device
-        .create_texture(&wgpu::TextureDescriptor {
-            label: Some("depth"),
-            size: wgpu::Extent3d {
-                width: SIZE,
-                height: SIZE,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: DEPTH_FORMAT,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-            view_formats: &[],
-        })
-        .create_view(&wgpu::TextureViewDescriptor::default());
-
-    let mut encoder = h
-        .device
-        .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-    {
-        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("scene"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &view,
-                depth_slice: None,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: &depth,
-                depth_ops: Some(wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(1.0),
-                    store: wgpu::StoreOp::Store,
-                }),
-                stencil_ops: None,
-            }),
-            timestamp_writes: None,
-            occlusion_query_set: None,
-            multiview_mask: None,
-        });
-        renderer.draw(&mut pass, &material, &mesh);
-    }
-    h.queue.submit([encoder.finish()]);
-    let out = read_back(&h, &target);
+    let out = render_once(&h, &renderer, &material, &mesh);
 
     // The same formula on the CPU: diffuse x (ambient + saturate(dot(n, l)) x sun).
     let scene = SceneUniform::default();
@@ -229,6 +230,47 @@ fn one_frame_renders_the_prototype_lambert_formula() {
         out.get(0, 0),
         [0, 0, 0, 255],
         "outside the triangle the clear stands"
+    );
+}
+
+#[test]
+fn a_screen_space_draw_ignores_the_camera() {
+    let Some(h) = headless() else {
+        eprintln!("screen-space render skipped: no wgpu adapter (CI installs lavapipe)");
+        return;
+    };
+    let mut renderer = Renderer::new(&h.device, &h.queue, FORMAT);
+    let mesh = renderer.upload_mesh(&h.device, &quad([0.5, 1.0, 1.0]));
+    let material = renderer.material(
+        &h.device,
+        MaterialDesc::space(),
+        &DrawUniform {
+            flags: FLAG_SCREEN | FLAG_VERTEX_COLOR,
+            ..DrawUniform::default()
+        },
+        None,
+    );
+    // A camera that collapses everything it touches to a point: whatever survives went round it.
+    renderer.set_scene(
+        &h.queue,
+        &SceneUniform {
+            view_proj: [0.0; 16],
+            ..SceneUniform::default()
+        },
+    );
+    let out = render_once(&h, &renderer, &material, &mesh);
+    let got = out.get(SIZE / 2, SIZE / 2);
+    for (i, want) in [128, 255, 255].iter().enumerate() {
+        assert!(
+            (i32::from(got[i]) - want).abs() <= 1,
+            "channel {i}: rendered {}, expected {want}",
+            got[i]
+        );
+    }
+    assert_eq!(
+        out.get(0, 0),
+        [0, 0, 0, 255],
+        "the backdrop still stops at its own triangle"
     );
 }
 

@@ -11,6 +11,7 @@ no desktop binary. Local runs use the web build.
 |---|---|---|
 | `App` (`winit::application::ApplicationHandler`) | Window, GPU init (async on the web), resize, redraw, input, egui events | ported |
 | `Planet` | The ported builders assembled once and drawn every frame, the cloud decks included | ported |
+| `Backdrop` | The space pass: vignette and stars, rebuilt when the target size changes, drawn before the depth clear | ported |
 | `Camera`, `Trackball` | fov 38°, distance 1.35–6 from 3.3; trackball spin, flick inertia, wheel and pinch | ported |
 | `start()` (wasm) | Installs panic and log hooks, appends the canvas, spawns the event loop | ported |
 | `android_main` | `GameActivity` entry via `android-activity` | compiled by `mobile.yml` |
@@ -36,6 +37,8 @@ no desktop binary. Local runs use the web build.
 - The see-through hole tracks the camera's distance, not a clock, so it is set every frame beside
   the model rather than on the animation clocks. The camera stays on `+z`, so the opening always
   faces the viewer and only its width and depth change.
+- A frame is two passes into one target: the backdrop clears the colour and writes no depth, then
+  the depth clear starts the planet, so nothing behind the planet can ever occlude it.
 
 ## Testing
 The camera and trackball are unit tested: the zoom range and its wheel and pinch ratios, the basis
