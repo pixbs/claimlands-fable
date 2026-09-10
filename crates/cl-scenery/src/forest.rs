@@ -16,7 +16,8 @@ use cl_model::{Cover, MeshData, TileId, WorldSnapshot, hex_rgb};
 use cl_noise::vec::{V3, add, cross, dot, len, mul, norm, sub};
 use cl_noise::{fbm3, hash3i, js};
 
-use crate::zones::{ZoneFrame, Zoning, cover_zones, in_hull, poly_area};
+use crate::poly::{Poly, hull_at, poly_area};
+use crate::zones::{ZoneFrame, Zones, cover_zones, zone_frame};
 
 /// The commonest crown green, about half the wood.
 pub const CANOPY_BODY: &str = "#3a7a26";
@@ -54,6 +55,8 @@ pub const FLOOR_GROW: f64 = 1.15;
 pub const FLOOR_LIFT_PX: f64 = 0.5;
 /// How much darker than the crown a disc is.
 pub const FLOOR_SHADE: f64 = 0.40;
+/// Salt of the forest zone frames.
+pub const FOREST_SALT: i32 = 29;
 /// Half-angle cap of a forest zone, in radians. Wider than the farmland cap: farmland needs the
 /// gnomonic projection for exact polygon clipping and that distorts fast, while the planting grid
 /// uses the equal-distance mapping, which only loses `sin(p)/p` across — 6 % out here.
@@ -72,8 +75,6 @@ const BAND_SH: [f64; 4] = [0.38, 0.62, 0.88, 1.18];
 /// Sides of an understory disc. Seven, not six: an odd count keeps the disc from lining up with the
 /// hex grid underneath it.
 const FLOOR_SIDES: usize = 7;
-/// Hash salt of the zone frames, shared with the other cover renderers.
-const ZONE_SALT: i32 = 29;
 
 /// One ring of a crown: height and radius as fractions of the tree's height and radius.
 struct Ring {
@@ -132,8 +133,8 @@ pub fn build_forest(
     let mut crowns = 0;
 
     for (zi, zone) in zoning.zones.iter().enumerate() {
-        let frame = ZoneFrame::new(sphere, zone, ZONE_SALT);
-        let hulls: Vec<Vec<[f64; 2]>> = zone
+        let frame = zone_frame(sphere, zone, FOREST_SALT);
+        let hulls: Vec<Poly> = zone
             .iter()
             .map(|&id| hull_of(sphere, &frame, id).0)
             .collect();
@@ -170,7 +171,7 @@ pub fn build_forest(
                         * step,
                 ];
                 let mut bush = false;
-                let mut root = hulls.iter().position(|h| in_hull(h, q)).map(|i| zone[i]);
+                let mut root = hull_at(&hulls, q).map(|i| zone[i]);
                 if root.is_none() {
                     // Outside the wood: the ring of land around it, where strays root.
                     root = bushes
@@ -188,7 +189,7 @@ pub fn build_forest(
                 let tile = root.expect("slots with nothing to root on are skipped");
 
                 let kz = seed_i.wrapping_add((zi as i32).wrapping_mul(733));
-                let t = &sphere.tiles[tile.index()];
+                let t = sphere.tile(tile);
                 let tf = &frames.tiles[tile.index()];
                 let plane = facet_plane(t, tf);
                 let dir = frame.to3e(q);
@@ -300,15 +301,16 @@ fn canopy_bands(seed: f64) -> [f64; 2] {
 /// A tile just outside a zone that a stray may root on, with the edges it shares with the zone.
 struct Bush {
     tile: TileId,
-    hull: Vec<[f64; 2]>,
+    hull: Poly,
     /// For each edge of the hull, whether the tile across it belongs to the zone.
     zone_edge: Vec<bool>,
 }
 
 /// The tile's corners in the zone's plane, counter-clockwise, and whether the winding was flipped
 /// to get there.
-fn hull_of(sphere: &HexSphere, frame: &ZoneFrame, id: TileId) -> (Vec<[f64; 2]>, bool) {
-    let mut h: Vec<[f64; 2]> = sphere.tiles[id.index()]
+fn hull_of(sphere: &HexSphere, frame: &ZoneFrame, id: TileId) -> (Poly, bool) {
+    let mut h: Poly = sphere
+        .tile(id)
         .corners
         .iter()
         .map(|&p| frame.to2e(p))
@@ -325,7 +327,7 @@ fn hull_of(sphere: &HexSphere, frame: &ZoneFrame, id: TileId) -> (Vec<[f64; 2]>,
 fn bush_ring(
     sphere: &HexSphere,
     snapshot: &WorldSnapshot,
-    zoning: &Zoning,
+    zoning: &Zones,
     frame: &ZoneFrame,
     zone: &[TileId],
     zi: i32,
@@ -336,15 +338,15 @@ fn bush_ring(
     }
     let mut bushes = Vec::new();
     for &id in zone {
-        for &j in &sphere.tiles[id.index()].neighbors {
+        for &j in &sphere.tile(id).neighbors {
             if seen[j.index()] {
                 continue;
             }
             seen[j.index()] = true;
-            if snapshot.tiles[j.index()].terrain.level() < 0 {
+            if !snapshot.tile(j).terrain.is_land() {
                 continue; // nothing roots at sea
             }
-            let n = &sphere.tiles[j.index()];
+            let n = sphere.tile(j);
             let sides = n.sides();
             let mut zone_edge: Vec<bool> = (0..sides)
                 .map(|k| zoning.zone_of[n.edge_neighbors[k].index()] == zi)
