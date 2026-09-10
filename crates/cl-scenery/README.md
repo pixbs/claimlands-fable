@@ -16,7 +16,7 @@ territory outline and the space pass.
 | `build_forest(&sphere, &frames, &snapshot, px, seed)` -> `Option<Forest>` (crowns and understory discs in one mesh, plus zone, tile and crown counts) | `buildForest` | ported |
 | `cover_zones`, `zone_frame`, `ZoneFrame::{to2, to3, to2e, to3e}`, `ring_normal` | `coverZones`, `zoneFrame`, `ringNormal` | ported |
 | `poly`: `clip_half`, `clip_to_hull`, `trim_convex`, `dedupe`, `mitre_offset`, `parcel_split`, `poly_area`, `poly_thickness`, `hull_at` | the 2D convex polygon kit | ported |
-| `build_houses` | `buildHouses` | issue M1 |
+| `build_houses(&sphere, &frames, &snapshot, px, seed)` -> `Option<Houses>` (every house and wing in one mesh, plus zone, tile, house and wing counts) | `buildHouses` | ported |
 | `build_border`, `hover_ring` | `rebuildBorder`, `setRing` | issue M1 |
 | `build_space(w, h)` (vignette + stars), `step_stars` | `buildSpace`, `stepStars` | issue M1 |
 | `pick(ray, …)` | raycast to tile via `faceTile` / `wallTile` | issue M1 |
@@ -36,13 +36,16 @@ territory outline and the space pass.
   agree on their shared edge, so both tiles land on the identical vertex. Lifting along each tile's
   own normal left a step of about 0.22 px at every seam.
 - A wood is the exception to the cutting: crowns are never clipped to their tile, so the treeline
-  spills past the hex border and the silhouette stays organic.
+  spills past the hex border and the silhouette stays organic. A house is the same: it stands
+  wherever its plot centre lands and keeps its full footprint.
+- A village takes its wall tone per zone and its plot grid from the zone frame, so a settlement
+  spanning several tiles is one street layout in one material rather than a tile's worth each.
 
 ## Testing
 `tests/fixtures.rs` compares each ported builder with `fixtures/scenery/*.json`: vertex counts,
 the exact `sha256` of the little-endian `f32` bytes, and the first 64 floats for readable diffs.
-Farmland and the wood also have their zone, parcel, fence, tile and crown counts pinned, and their
-constants are checked against `fixtures/constants.json`. The polygon kit and the zone
+Farmland, the wood and the villages also have their zone, parcel, fence, tile, crown, house and
+wing counts pinned, and their constants are checked against `fixtures/constants.json`. The polygon kit and the zone
 machinery carry unit tests on hand-made shapes, where the expected answer can be read off by hand.
 
 ## Non-goals
