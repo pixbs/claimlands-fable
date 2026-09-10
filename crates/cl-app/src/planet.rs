@@ -7,13 +7,14 @@
 use cl_hexsphere::{Frames, HexSphere, compute_tile_frames};
 use cl_model::{Texture, WorldSnapshot, hex_rgb};
 use cl_pixelart::{
-    Atlas, FOAM_FRAMES, build_terrain_atlas, make_cliff_texture, make_foam_texture, palette,
+    Atlas, FOAM_FRAMES, build_terrain_atlas, make_cliff_texture, make_field_texture,
+    make_foam_texture, palette,
 };
 use cl_render::{
     DrawUniform, FLAG_TEXTURED, FLAG_VERTEX_COLOR, GpuTexture, Material, MaterialDesc, Mesh,
     Renderer,
 };
-use cl_scenery::{Terrain, build_atmosphere, build_terrain};
+use cl_scenery::{Fields, Terrain, build_atmosphere, build_fields, build_terrain};
 
 /// The surf steps one frame every this many milliseconds.
 pub const FOAM_MS: f64 = 140.0;
@@ -60,10 +61,14 @@ pub struct Planet {
     pub atlas: Atlas,
     /// The surface meshes.
     pub terrain: Terrain,
+    /// The farmland, where any grows.
+    pub fields: Option<Fields>,
     ground: Part,
     walls: Part,
     foam: Part,
     air: Part,
+    /// Field tops and sides, then the fence posts. Empty where no farmland grew.
+    cover: Vec<Part>,
     foam_frame: u32,
     foam_at: f64,
 }
@@ -101,11 +106,13 @@ impl Planet {
         let atlas = build_terrain_atlas(&sphere, &frames, &snapshot, seed);
         let terrain = build_terrain(&sphere, &frames, &snapshot, &atlas);
         let shell = build_atmosphere(&sphere, frames.px);
+        let fields = build_fields(&sphere, &frames, &snapshot, frames.px);
 
         let upload = |t: &Texture| -> GpuTexture { renderer.upload_texture(device, queue, t) };
         let atlas_map = upload(&atlas.texture);
         let cliff_map = upload(&make_cliff_texture());
         let foam_map = upload(&make_foam_texture());
+        let field_map = upload(&make_field_texture());
 
         let textured = DrawUniform {
             flags: FLAG_TEXTURED | FLAG_VERTEX_COLOR,
@@ -152,16 +159,44 @@ impl Planet {
             None,
         );
 
+        // Farmland: the tops and sides sample the field strip, the posts are flat vertex colour.
+        let mut cover = Vec::new();
+        if let Some(f) = &fields {
+            cover.push(Part::upload(
+                renderer,
+                device,
+                &f.surface,
+                MaterialDesc::lambert(),
+                textured,
+                Some(&field_map),
+            ));
+            if !f.posts.is_empty() {
+                cover.push(Part::upload(
+                    renderer,
+                    device,
+                    &f.posts,
+                    MaterialDesc::lambert(),
+                    DrawUniform {
+                        flags: FLAG_VERTEX_COLOR,
+                        ..DrawUniform::default()
+                    },
+                    None,
+                ));
+            }
+        }
+
         Self {
             sphere,
             snapshot,
             frames,
             atlas,
             terrain,
+            fields,
             ground,
             walls,
             foam,
             air,
+            cover,
             foam_frame: 0,
             foam_at: 0.0,
         }
@@ -182,12 +217,13 @@ impl Planet {
 
     /// Points every layer at the planet's current orientation.
     pub fn set_model(&mut self, queue: &wgpu::Queue, model: [f32; 16]) {
-        for part in [
+        let fixed = [
             &mut self.ground,
             &mut self.walls,
             &mut self.foam,
             &mut self.air,
-        ] {
+        ];
+        for part in fixed.into_iter().chain(self.cover.iter_mut()) {
             part.uniform.model = model;
             part.flush(queue);
         }
@@ -195,7 +231,11 @@ impl Planet {
 
     /// Draws the planet: opaque solids first, then the surf, as the prototype's `renderOrder` asks.
     pub fn draw(&self, renderer: &Renderer, pass: &mut wgpu::RenderPass<'_>) {
-        for part in [&self.ground, &self.walls, &self.air, &self.foam] {
+        for part in [&self.ground, &self.walls]
+            .into_iter()
+            .chain(self.cover.iter())
+            .chain([&self.air, &self.foam])
+        {
             renderer.draw(pass, &part.material, &part.mesh);
         }
     }

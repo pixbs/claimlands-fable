@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use cl_hexsphere::{HexSphere, compute_tile_frames};
 use cl_model::{Cover, Terrain, TileId, TileState, WorldSnapshot};
 use cl_pixelart::build_terrain_atlas;
-use cl_scenery::{build_atmosphere, build_cloud_shell, build_terrain};
+use cl_scenery::{build_atmosphere, build_cloud_shell, build_fields, build_terrain};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
@@ -268,5 +268,78 @@ fn terrain_meshes_match_prototype_worlds() {
             .collect();
         assert_eq!(terrain.vertex_start, starts, "{tag} vertexStart");
         assert_eq!(terrain.vertex_count, counts, "{tag} vertexCount");
+    }
+}
+
+#[test]
+fn farmland_matches_prototype_worlds() {
+    for tag in ["n4-s31676", "n4-s1234", "n8-s63352"] {
+        let f = fixture(&format!("{tag}-cover.json"));
+        let want = &f["fields"];
+        let (sphere, snapshot) = world(tag);
+        let frames = compute_tile_frames(&sphere, &snapshot.levels());
+        let fields = build_fields(&sphere, &frames, &snapshot, frames.px);
+
+        if want.is_null() {
+            assert!(fields.is_none(), "{tag}: the prototype grew no farmland");
+            continue;
+        }
+        let fields = fields.unwrap_or_else(|| panic!("{tag}: expected farmland"));
+
+        for (name, got, key) in [
+            ("zones", fields.zones, "zones"),
+            ("parcels", fields.parcels, "parcels"),
+            ("fences", fields.fences, "fences"),
+            ("tiles", fields.tiles, "tiles"),
+        ] {
+            assert_eq!(
+                got,
+                want[key].as_u64().unwrap() as usize,
+                "{tag} field {name}"
+            );
+        }
+
+        check_attribute(
+            &format!("{tag} fields.position"),
+            &fields.surface.positions,
+            &want["surface"]["position"],
+        );
+        check_attribute(
+            &format!("{tag} fields.uv"),
+            &fields.surface.uvs,
+            &want["surface"]["uv"],
+        );
+        check_attribute(
+            &format!("{tag} fields.color"),
+            &fields.surface.colors,
+            &want["surface"]["color"],
+        );
+        check_attribute(
+            &format!("{tag} fields.normal"),
+            &fields.surface.normals,
+            &want["surface"]["normal"],
+        );
+        assert!(fields.surface.validate().is_ok());
+
+        if want["posts"].is_null() {
+            assert!(fields.posts.is_empty(), "{tag}: no fence in the prototype");
+        } else {
+            check_attribute(
+                &format!("{tag} posts.position"),
+                &fields.posts.positions,
+                &want["posts"]["position"],
+            );
+            check_attribute(
+                &format!("{tag} posts.color"),
+                &fields.posts.colors,
+                &want["posts"]["color"],
+            );
+            check_attribute(
+                &format!("{tag} posts.normal"),
+                &fields.posts.normals,
+                &want["posts"]["normal"],
+            );
+            assert!(fields.posts.validate().is_ok());
+        }
     }
 }
