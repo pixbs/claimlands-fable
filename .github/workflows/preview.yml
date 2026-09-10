@@ -34,6 +34,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: sudo apt-get install -y --no-install-recommends binaryen
       - run: cargo xtask web
+      - name: include supplemental design references
+        run: |
+          node reference/designs/verify.cjs
+          cp -R reference/designs dist/reference/designs
       - name: deploy to Cloudflare Pages
         id: deploy
         uses: cloudflare/wrangler-action@v4
@@ -50,6 +54,7 @@ jobs:
             ### preview
             Game: ${{ steps.deploy.outputs.deployment-url }}
             Prototype for A/B: ${{ steps.deploy.outputs.deployment-url }}/reference/
+            Supplemental designs: ${{ steps.deploy.outputs.deployment-url }}/reference/designs/capital.html
             Branch alias: ${{ steps.deploy.outputs.pages-deployment-alias-url }}
             Commit `${{ github.event.pull_request.head.sha }}`
       - name: summary

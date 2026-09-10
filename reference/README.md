@@ -16,3 +16,8 @@ cargo xtask fixtures --full   # also dumps complete arrays to reference/harness/
 The harness changes only to extract more; it never changes what the prototype computes. Fixture
 diffs in a PR need the `visual-change` label and a reason. `docs/testing.md` lists what each fixture
 directory holds and how tests compare it.
+
+`designs/` holds [approved supplemental references](designs/README.md): a procedural capital,
+four original unit markers and an availability star, each in a separate HTML/JavaScript file.
+They guide future Rust builders for objects absent from the frozen prototype. The preview serves
+them at `/reference/designs/capital.html`; they do not replace the oracle or its fixtures.

@@ -1,0 +1,19 @@
+*{box-sizing:border-box}:root{color-scheme:dark;--foreground:#e7ddc8}body{margin:0;background:#18231e;color:var(--foreground);font:15px/1.5 system-ui,sans-serif}main{max-width:960px;margin:auto;padding:24px}h1{font-size:25px;margin:18px 0 2px}.intro{color:#adb9a6;margin:0 0 20px}nav{display:flex;gap:8px;flex-wrap:wrap}a{color:#c9d7b9;text-underline-offset:3px}nav a{padding:5px 10px;border:1px solid #465644;border-radius:5px}label{display:flex;flex-direction:column;gap:5px}select,input,button{font:inherit;color:inherit;background:#253328;border:1px solid #526049;border-radius:5px;padding:7px}button{cursor:pointer}button:disabled{opacity:.4;cursor:default}.viz-controls,.viz-row{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin:12px 0}.viz-controls>label{flex:1;min-width:150px}.form-check{flex-direction:row;align-items:center}.text-small{font-size:12px;color:#bdc7b0}.btn-primary{background:#4d6738}canvas{background:#1c2b24;border-radius:7px}.form-range{padding:0}input[type=range]{width:100%}[role=alert]{color:#ffb39b}@media(max-width:480px){main{padding:14px}}
+
+  #capital-composer{width:100%;color:var(--foreground)}
+  #capital-composer #cc-main{display:block;width:100%;height:440px;image-rendering:pixelated;touch-action:none;cursor:grab}
+  #capital-composer #cc-main:active{cursor:grabbing}
+  #capital-composer #cc-detail{text-align:center}
+  #capital-composer #cc-distances{display:flex;justify-content:center;gap:12px;margin:12px 0;flex-wrap:wrap}
+  #capital-composer figure{margin:0;flex:1;min-width:85px;max-width:180px;text-align:center}
+  #capital-composer figure canvas{display:block;width:96px;height:100px;margin:auto;image-rendering:pixelated}
+  @media(max-width:480px){#capital-composer #cc-main{height:360px}#capital-composer #cc-distances{gap:6px}}
+
+  #wp-refined-study {width:100%;color:var(--foreground)}
+  #wp-refined-study #wp-canvas {display:block;width:100%;height:440px;image-rendering:pixelated;touch-action:none;cursor:grab}
+  #wp-refined-study #wp-canvas:active {cursor:grabbing}
+  #wp-refined-study #wp-scales {display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin:16px 0}
+  #wp-refined-study figure {margin:0;text-align:center;flex:1;min-width:85px;max-width:180px}
+  #wp-refined-study figure canvas {display:block;margin:auto;width:96px;height:160px;image-rendering:pixelated}
+  #wp-refined-study #wp-detail {margin-top:12px}
+  @media(max-width:480px){#wp-refined-study #wp-canvas{height:380px}#wp-refined-study #wp-scales{gap:6px}}
