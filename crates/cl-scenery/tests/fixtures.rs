@@ -9,10 +9,14 @@ use cl_hexsphere::{HexSphere, compute_tile_frames};
 use cl_model::{Cover, Terrain, TileId, TileState, WorldSnapshot};
 use cl_pixelart::build_terrain_atlas;
 use cl_scenery::{
-    BUSH_CHANCE, BUSH_MARGIN_PX, CANOPY_BODY, CANOPY_ZONE_F, CANOPY_ZONES, CROWN_JIT, CROWN_PX,
-    CROWN_STEP, FLOOR_GROW, FLOOR_LIFT_PX, FLOOR_R_MIN, FLOOR_SHADE, FOREST_SPAN, TREE_H_PX,
-    TREE_MAX, TREE_MIN, TREE_SINK_PX, VIGOUR_F, build_atmosphere, build_cloud_shell, build_fields,
-    build_forest, build_terrain,
+    BUSH_CHANCE, BUSH_MARGIN_PX, CANOPY_BODY, CANOPY_ZONE_F, CANOPY_ZONES, CHIM_ODDS, CHIM_PX,
+    CHIM_RISE_MAX, CHIM_RISE_MIN, CROWN_JIT, CROWN_PX, CROWN_STEP, DOOR_H, DOOR_W, FLOOR_GROW,
+    FLOOR_LIFT_PX, FLOOR_R_MIN, FLOOR_SHADE, FOREST_SPAN, HOUSE_LEN_MAX, HOUSE_LEN_MIN, HOUSE_ODDS,
+    HOUSE_OPEN, HOUSE_ROOF, HOUSE_ROT_JIT, HOUSE_SINK, HOUSE_SPAN, HOUSE_SPAN_MAX, HOUSE_SPAN_MIN,
+    HOUSE_TURNS, HOUSE_WALLS, L_CHANCE, PLOT_JIT, PLOT_PX, RIDGE_CAP_PX, ROOF_LIP, ROOF_OVER,
+    STRIPE_ODDS, STRIPE_PX, TREE_H_PX, TREE_MAX, TREE_MIN, TREE_SINK_PX, VERGE_ODDS, VERGE_PX,
+    VIGOUR_F, WALL_MAX, WALL_MIN, WIN_PX, build_atmosphere, build_cloud_shell, build_fields,
+    build_forest, build_houses, build_terrain,
 };
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -426,6 +430,118 @@ fn forest_constants_match_prototype() {
         ("FLOOR_LIFT_PX", FLOOR_LIFT_PX),
         ("FLOOR_SHADE", FLOOR_SHADE),
         ("FOREST_SPAN", FOREST_SPAN),
+    ] {
+        assert_eq!(c[name].as_f64().unwrap(), value, "{name}");
+    }
+}
+
+#[test]
+fn house_meshes_match_prototype_worlds() {
+    for tag in ["n4-s31676", "n4-s1234", "n8-s63352"] {
+        let f = fixture(&format!("{tag}-cover.json"));
+        let (sphere, snapshot) = world(tag);
+        let frames = compute_tile_frames(&sphere, &snapshot.levels());
+        let houses = build_houses(
+            &sphere,
+            &frames,
+            &snapshot,
+            frames.px,
+            f64::from(snapshot.seed),
+        )
+        .expect("every prototype world carries a village");
+        let want = &f["houses"];
+        for (name, got, expected) in [
+            (
+                "zones",
+                houses.zones,
+                want["zones"].as_u64().unwrap() as usize,
+            ),
+            (
+                "tiles",
+                houses.tiles,
+                want["tiles"].as_u64().unwrap() as usize,
+            ),
+            (
+                "houses",
+                houses.houses,
+                want["houses"].as_u64().unwrap() as usize,
+            ),
+            (
+                "wings",
+                houses.wings,
+                want["wings"].as_u64().unwrap() as usize,
+            ),
+        ] {
+            assert_eq!(got, expected, "{tag} houses {name}");
+        }
+        for (name, got) in [
+            ("position", &houses.surface.positions),
+            ("color", &houses.surface.colors),
+            ("normal", &houses.surface.normals),
+        ] {
+            check_attribute(&format!("{tag} houses.{name}"), got, &want["surface"][name]);
+        }
+        assert!(
+            houses.surface.validate().is_ok(),
+            "{tag} houses: {:?}",
+            houses.surface.validate()
+        );
+    }
+}
+
+#[test]
+fn house_constants_match_prototype() {
+    let path: PathBuf = [env!("CARGO_MANIFEST_DIR"), "..", "..", "fixtures"]
+        .iter()
+        .collect();
+    let c: Value =
+        serde_json::from_str(&fs::read_to_string(path.join("constants.json")).unwrap()).unwrap();
+    let strs = |v: &Value| -> Vec<String> {
+        v.as_array()
+            .unwrap()
+            .iter()
+            .map(|s| s.as_str().unwrap().to_owned())
+            .collect()
+    };
+    assert_eq!(strs(&c["HOUSE_WALLS"]), HOUSE_WALLS);
+    assert_eq!(c["HOUSE_ROOF"]["a"], HOUSE_ROOF[0]);
+    assert_eq!(c["HOUSE_ROOF"]["b"], HOUSE_ROOF[1]);
+    assert_eq!(c["HOUSE_OPEN"], HOUSE_OPEN);
+    let turns: Vec<f64> = c["HOUSE_TURNS"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_f64().unwrap())
+        .collect();
+    assert_eq!(turns, HOUSE_TURNS, "HOUSE_TURNS");
+    for (name, value) in [
+        ("PLOT_PX", PLOT_PX),
+        ("PLOT_JIT", PLOT_JIT),
+        ("HOUSE_SPAN_MIN", HOUSE_SPAN_MIN),
+        ("HOUSE_SPAN_MAX", HOUSE_SPAN_MAX),
+        ("HOUSE_LEN_MIN", HOUSE_LEN_MIN),
+        ("HOUSE_LEN_MAX", HOUSE_LEN_MAX),
+        ("WALL_MIN", WALL_MIN),
+        ("WALL_MAX", WALL_MAX),
+        ("ROOF_OVER", ROOF_OVER),
+        ("ROOF_LIP", ROOF_LIP),
+        ("STRIPE_PX", STRIPE_PX),
+        ("RIDGE_CAP_PX", RIDGE_CAP_PX),
+        ("STRIPE_ODDS", STRIPE_ODDS),
+        ("VERGE_PX", VERGE_PX),
+        ("VERGE_ODDS", VERGE_ODDS),
+        ("DOOR_W", DOOR_W),
+        ("DOOR_H", DOOR_H),
+        ("WIN_PX", WIN_PX),
+        ("CHIM_PX", CHIM_PX),
+        ("CHIM_RISE_MIN", CHIM_RISE_MIN),
+        ("CHIM_RISE_MAX", CHIM_RISE_MAX),
+        ("CHIM_ODDS", CHIM_ODDS),
+        ("L_CHANCE", L_CHANCE),
+        ("HOUSE_SINK", HOUSE_SINK),
+        ("HOUSE_ODDS", HOUSE_ODDS),
+        ("HOUSE_SPAN", HOUSE_SPAN),
+        ("HOUSE_ROT_JIT", HOUSE_ROT_JIT),
     ] {
         assert_eq!(c[name].as_f64().unwrap(), value, "{name}");
     }

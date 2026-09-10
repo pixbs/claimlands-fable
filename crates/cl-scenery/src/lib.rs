@@ -3,6 +3,7 @@
 
 mod fields;
 mod forest;
+mod houses;
 mod poly;
 mod shells;
 mod terrain;
@@ -16,6 +17,13 @@ pub use forest::{
     BUSH_CHANCE, BUSH_MARGIN_PX, CANOPY_BODY, CANOPY_ZONE_F, CANOPY_ZONES, CROWN_JIT, CROWN_PX,
     CROWN_STEP, FLOOR_GROW, FLOOR_LIFT_PX, FLOOR_R_MIN, FLOOR_SHADE, FOREST_SALT, FOREST_SPAN,
     Forest, TREE_H_PX, TREE_MAX, TREE_MIN, TREE_SINK_PX, VIGOUR_F, build_forest,
+};
+pub use houses::{
+    CHIM_ODDS, CHIM_PX, CHIM_RISE_MAX, CHIM_RISE_MIN, DOOR_H, DOOR_W, HOUSE_LEN_MAX, HOUSE_LEN_MIN,
+    HOUSE_ODDS, HOUSE_OPEN, HOUSE_ROOF, HOUSE_ROT_JIT, HOUSE_SALT, HOUSE_SINK, HOUSE_SPAN,
+    HOUSE_SPAN_MAX, HOUSE_SPAN_MIN, HOUSE_TURNS, HOUSE_WALLS, Houses, L_CHANCE, PLOT_JIT, PLOT_PX,
+    RIDGE_CAP_PX, ROOF_LIP, ROOF_OVER, STRIPE_ODDS, STRIPE_PX, VERGE_ODDS, VERGE_PX, WALL_MAX,
+    WALL_MIN, WIN_PX, build_houses,
 };
 pub use poly::{
     Poly, clip_half, clip_to_hull, dedupe, hull_at, mitre_offset, parcel_split, poly_area,
