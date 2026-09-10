@@ -14,7 +14,9 @@ use cl_render::{
     DrawUniform, FLAG_TEXTURED, FLAG_VERTEX_COLOR, GpuTexture, Material, MaterialDesc, Mesh,
     Renderer,
 };
-use cl_scenery::{Fields, Terrain, build_atmosphere, build_fields, build_terrain};
+use cl_scenery::{
+    Fields, Forest, Terrain, build_atmosphere, build_fields, build_forest, build_terrain,
+};
 
 /// The surf steps one frame every this many milliseconds.
 pub const FOAM_MS: f64 = 140.0;
@@ -63,11 +65,14 @@ pub struct Planet {
     pub terrain: Terrain,
     /// The farmland, where any grows.
     pub fields: Option<Fields>,
+    /// The woods, where any grow.
+    pub forest: Option<Forest>,
     ground: Part,
     walls: Part,
     foam: Part,
     air: Part,
-    /// Field tops and sides, then the fence posts. Empty where no farmland grew.
+    /// Field tops and sides, the fence posts, then the crowns — the prototype's cover order.
+    /// Empty where the world grew neither farmland nor wood.
     cover: Vec<Part>,
     foam_frame: u32,
     foam_at: f64,
@@ -107,6 +112,7 @@ impl Planet {
         let terrain = build_terrain(&sphere, &frames, &snapshot, &atlas);
         let shell = build_atmosphere(&sphere, frames.px);
         let fields = build_fields(&sphere, &frames, &snapshot, frames.px);
+        let forest = build_forest(&sphere, &frames, &snapshot, frames.px, seed);
 
         let upload = |t: &Texture| -> GpuTexture { renderer.upload_texture(device, queue, t) };
         let atlas_map = upload(&atlas.texture);
@@ -184,6 +190,20 @@ impl Planet {
                 ));
             }
         }
+        // The wood: crowns and their floor discs carry their own flat colours, no texture.
+        if let Some(w) = &forest {
+            cover.push(Part::upload(
+                renderer,
+                device,
+                &w.surface,
+                MaterialDesc::lambert(),
+                DrawUniform {
+                    flags: FLAG_VERTEX_COLOR,
+                    ..DrawUniform::default()
+                },
+                None,
+            ));
+        }
 
         Self {
             sphere,
@@ -192,6 +212,7 @@ impl Planet {
             atlas,
             terrain,
             fields,
+            forest,
             ground,
             walls,
             foam,

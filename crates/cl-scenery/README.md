@@ -13,9 +13,9 @@ territory outline and the space pass.
 | `build_cloud_shell(&sphere, &frames, px)` | `buildCloudShell` | ported |
 | `build_terrain(&sphere, &frames, &snapshot, &atlas)` -> `Terrain` (fans, cliff wedges, surf, edge ribbons, `face_tile`, `wall_tile`, `vertex_start`/`vertex_count`) | `buildMesh` | ported |
 | `build_fields(&sphere, &frames, &snapshot, px)` -> `Option<Fields>` (surface, posts, zone/parcel/fence counts) | `buildFields` | ported |
+| `build_forest(&sphere, &frames, &snapshot, px, seed)` -> `Option<Forest>` (crowns and understory discs in one mesh, plus zone, tile and crown counts) | `buildForest` | ported |
 | `cover_zones`, `zone_frame`, `ZoneFrame::{to2, to3, to2e, to3e}`, `ring_normal` | `coverZones`, `zoneFrame`, `ringNormal` | ported |
 | `poly`: `clip_half`, `clip_to_hull`, `trim_convex`, `dedupe`, `mitre_offset`, `parcel_split`, `poly_area`, `poly_thickness`, `hull_at` | the 2D convex polygon kit | ported |
-| `build_forest` | `buildForest` | issue M1 |
 | `build_houses` | `buildHouses` | issue M1 |
 | `build_border`, `hover_ring` | `rebuildBorder`, `setRing` | issue M1 |
 | `build_space(w, h)` (vignette + stars), `step_stars` | `buildSpace`, `stepStars` | issue M1 |
@@ -35,11 +35,14 @@ territory outline and the space pass.
 - Cover vertices are lifted along the ray through the point, never along a tile normal: two facets
   agree on their shared edge, so both tiles land on the identical vertex. Lifting along each tile's
   own normal left a step of about 0.22 px at every seam.
+- A wood is the exception to the cutting: crowns are never clipped to their tile, so the treeline
+  spills past the hex border and the silhouette stays organic.
 
 ## Testing
 `tests/fixtures.rs` compares each ported builder with `fixtures/scenery/*.json`: vertex counts,
 the exact `sha256` of the little-endian `f32` bytes, and the first 64 floats for readable diffs.
-Farmland also has its zone, parcel, fence and tile counts pinned. The polygon kit and the zone
+Farmland and the wood also have their zone, parcel, fence, tile and crown counts pinned, and their
+constants are checked against `fixtures/constants.json`. The polygon kit and the zone
 machinery carry unit tests on hand-made shapes, where the expected answer can be read off by hand.
 
 ## Non-goals
