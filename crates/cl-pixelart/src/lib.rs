@@ -15,7 +15,7 @@ pub use atlas::{
 pub use cl_model::{Filter, Texture, Wrap};
 pub use sky::{
     BAYER4, CLOUD_DECKS, CLOUD_F0, CLOUD_OCT, CLOUD_TEX_W, CloudDeck, DITHER_FLOOR, DITHER_RANKS,
-    Sky, make_cloud_sky,
+    Sky, make_cloud_sky, sky_seed,
 };
 pub use strips::{
     BEACH_PX, CLIFF_H, CLIFF_W, FIELD_ROWS, FOAM_FRAMES, FOAM_H, FOAM_PX, FOAM_W, FURROW_PX,

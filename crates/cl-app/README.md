@@ -17,8 +17,8 @@ no desktop binary. Local runs use the web build.
 | `claimlands_main` | iOS entry called from the Xcode project's `main.m` | compiled by `mobile.yml` |
 | Tap picking and the hover ring | prototype section 6 | issue M1 |
 | Surf clock | section 8 | ported |
-| Cloud decks: one shell, one material per deck | section 5 (`buildClouds`) | ported |
-| Scene sync from `cl-session` events; star, cloud drift and see-through clocks | sections 5, 8 | issues M1, M3 |
+| Cloud decks: one shell, one material per deck; `Planet::set_camera_distance` opens the see-through hole | section 5 (`buildClouds`), the see-through half of `stepSky` | ported |
+| Scene sync from `cl-session` events; star and cloud-drift clocks | sections 5, 8 | issues M1, M3 |
 
 ## Invariants
 - The frame is drawn only on `RedrawRequested`; nothing blocks the event loop on the web.
@@ -33,6 +33,9 @@ no desktop binary. Local runs use the web build.
 - The cloud decks share one uploaded shell; their scale rides the model matrix, which the shader
   already takes to be a rotation and a uniform scale. They draw last, being the outermost shells,
   and the depth buffer is what separates them — the order only settles ties between decks.
+- The see-through hole tracks the camera's distance, not a clock, so it is set every frame beside
+  the model rather than on the animation clocks. The camera stays on `+z`, so the opening always
+  faces the viewer and only its width and depth change.
 
 ## Testing
 The camera and trackball are unit tested: the zoom range and its wheel and pinch ratios, the basis

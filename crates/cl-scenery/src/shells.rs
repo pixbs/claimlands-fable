@@ -104,9 +104,41 @@ pub const HOLE_REST_IN: f64 = 0.3;
 pub const HOLE_REST_OPEN: f64 = 1.0;
 
 /// The resting cap as the deck's shader wants it: cosine of the outer angle, cosine of the inner,
-/// and how far the hole is open. Shut at rest, so it costs the fragment nothing until opened.
+/// and how far the hole is open. What the prototype seeds the uniform with before the first frame
+/// drives it; [`hole_at`] takes over from there.
 pub fn hole_rest() -> [f64; 3] {
     [cos(HOLE_REST_OUT), cos(HOLE_REST_IN), HOLE_REST_OPEN]
+}
+
+/// Camera distance at which the see-through opening begins.
+pub const SEE_FAR: f64 = 6.0;
+/// Camera distance at which it is fully open. The window sits almost at full zoom-out on purpose:
+/// the camera opens at 3.3 and closes at 1.35, so a window of 3.0 to 1.7 meant the effect had not
+/// begun at the distance the app starts on.
+pub const SEE_NEAR: f64 = 5.0;
+/// How far open the hole goes: the alpha every deck texel is multiplied by at the centre.
+pub const SEE_MIN: f64 = 0.02;
+/// Angular radius of the opening at [`SEE_FAR`], in degrees.
+pub const HOLE_DEG_FAR: f64 = 24.0;
+/// Angular radius at [`SEE_NEAR`], in degrees.
+pub const HOLE_DEG_NEAR: f64 = 64.0;
+/// Inner share of the opening that clears fully; the rest is the dithered rim.
+pub const HOLE_CORE: f64 = 0.40;
+
+/// The see-through cap for a camera distance: cosine of the outer angle, cosine of the inner, and
+/// how far the hole is open (1 shut).
+///
+/// Scrolling in opens a *hole* in the weather over whatever the camera points at rather than
+/// thinning the whole sky. The opening widens and deepens together as the camera closes in, and
+/// because the dither lives in the texture at one texel per world pixel, its rim breaks into
+/// world-pixel speckle on its own: the further from the centre, the fewer ranks are knocked out.
+///
+/// The fade is linear, not squared, because squaring held it off until the very last of the travel.
+pub fn hole_at(camera_distance: f64) -> [f64; 3] {
+    let near = ((SEE_FAR - camera_distance) / (SEE_FAR - SEE_NEAR)).clamp(0.0, 1.0);
+    let open = 1.0 - (1.0 - SEE_MIN) * near;
+    let rad = (HOLE_DEG_FAR + (HOLE_DEG_NEAR - HOLE_DEG_FAR) * near) * std::f64::consts::PI / 180.0;
+    [cos(rad), cos(rad * HOLE_CORE), open]
 }
 
 /// Where one cloud deck sits on the shared shell. The decks differ only in how far they are scaled
@@ -150,6 +182,32 @@ mod tests {
     use cl_hexsphere::compute_tile_frames;
 
     use super::*;
+
+    #[test]
+    fn the_hole_opens_as_the_camera_closes_in() {
+        // Shut beyond the window, fully open at and inside it.
+        assert_eq!(hole_at(SEE_FAR)[2], 1.0);
+        assert_eq!(hole_at(SEE_FAR + 1.0)[2], 1.0);
+        assert!((hole_at(SEE_NEAR)[2] - SEE_MIN).abs() < 1e-12);
+        // The app opens at 3.3, inside the window, so the hole is open on the first frame — which
+        // is the whole point of putting the window up at 6.0 to 5.0.
+        assert!((hole_at(3.3)[2] - SEE_MIN).abs() < 1e-12);
+        assert!((hole_at(1.35)[2] - SEE_MIN).abs() < 1e-12);
+
+        // Widening and deepening move together, and the core is always inside the rim. `cos` falls
+        // as the angle grows, so a wider hole has the *smaller* outer cosine.
+        let (far, near) = (hole_at(SEE_FAR), hole_at(SEE_NEAR));
+        assert!(near[0] < far[0], "the opening widens: {near:?} vs {far:?}");
+        assert!(near[2] < far[2], "and deepens");
+        for d in [SEE_FAR, 5.5, SEE_NEAR, 3.3, 1.35] {
+            let h = hole_at(d);
+            assert!(h[1] > h[0], "core inside rim at {d}: {h:?}");
+            assert!((SEE_MIN..=1.0).contains(&h[2]), "open in range at {d}");
+        }
+        // Halfway through the window is halfway through the fade: it is linear, not squared.
+        let mid = hole_at((SEE_FAR + SEE_NEAR) / 2.0);
+        assert!((mid[2] - (1.0 - (1.0 - SEE_MIN) * 0.5)).abs() < 1e-12);
+    }
 
     #[test]
     fn shells_are_valid_and_sized() {

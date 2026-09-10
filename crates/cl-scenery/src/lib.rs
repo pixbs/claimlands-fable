@@ -30,8 +30,9 @@ pub use poly::{
     poly_thickness, trim_convex,
 };
 pub use shells::{
-    Clouds, Deck, HOLE_REST_IN, HOLE_REST_OPEN, HOLE_REST_OUT, Shell, build_atmosphere,
-    build_cloud_shell, build_clouds, hole_rest,
+    Clouds, Deck, HOLE_CORE, HOLE_DEG_FAR, HOLE_DEG_NEAR, HOLE_REST_IN, HOLE_REST_OPEN,
+    HOLE_REST_OUT, SEE_FAR, SEE_MIN, SEE_NEAR, Shell, build_atmosphere, build_cloud_shell,
+    build_clouds, hole_at, hole_rest,
 };
 pub use terrain::{EDGE_HALF_PX, EDGE_LIFT, FOAM_LIFT, FOAM_V, Terrain, build_terrain};
 pub use zones::{ZoneFrame, Zones, cover_zones, ring_normal, zone_frame};

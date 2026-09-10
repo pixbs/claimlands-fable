@@ -95,6 +95,18 @@ fn rank_alpha() -> [u8; 16] {
     })
 }
 
+/// Salt the world seed is folded through before it reaches the sky. The prototype does this at the
+/// call site: the sky must be a function of the world, but on its own stream, so weather does not
+/// correlate with the terrain grown from the same number.
+const SKY_SALT: u32 = 9973;
+/// Offset applied after the fold, so seed 0 is not a special case.
+const SKY_LIFT: u32 = 7;
+
+/// The sky's seed for a world: `(seed % 9973) + 7`, the prototype's `buildClouds` call site.
+pub fn sky_seed(world_seed: u32) -> f64 {
+    f64::from(world_seed % SKY_SALT + SKY_LIFT)
+}
+
 /// Three cloud decks from one seed. Every deck is white; the tint lives on the material, and the
 /// alpha channel carries the dither rank so the shader can dissolve a deck by lowering opacity.
 pub fn make_cloud_sky(seed: f64) -> Sky {
@@ -171,6 +183,21 @@ mod tests {
         // Every rank clears the discard floor at full opacity: untouched sky shows no dither.
         for &v in &a {
             assert!(f64::from(v) / 255.0 > DITHER_FLOOR);
+        }
+    }
+
+    #[test]
+    fn sky_seed_folds_the_world_seed() {
+        // The world the fixtures are extracted from, and the seed they record.
+        assert_eq!(sky_seed(63352), 3521.0);
+        assert_eq!(sky_seed(0), 7.0);
+        // Always inside one salt of the lift, whatever the world.
+        for seed in [1u32, 9972, 9973, 9974, u32::MAX] {
+            let s = sky_seed(seed);
+            assert!(
+                (7.0..7.0 + f64::from(SKY_SALT)).contains(&s),
+                "{seed} -> {s}"
+            );
         }
     }
 

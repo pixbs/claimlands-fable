@@ -11,7 +11,7 @@ territory outline and the space pass.
 |---|---|---|
 | `build_atmosphere(&sphere, px)` | `buildAtmosphere` | ported |
 | `build_cloud_shell(&sphere, &frames, px)` | `buildCloudShell` | ported |
-| `build_clouds(&sphere, &frames, px)` -> `Clouds` (the shared shell plus a `Deck` per cloud layer: scale, tone, draw order), `hole_rest()` | `buildClouds` | ported |
+| `build_clouds(&sphere, &frames, px)` -> `Clouds` (the shared shell plus a `Deck` per cloud layer: scale, tone, draw order), `hole_rest()`, `hole_at(camera_distance)` | `buildClouds`, the see-through half of `stepSky` | ported |
 | `build_terrain(&sphere, &frames, &snapshot, &atlas)` -> `Terrain` (fans, cliff wedges, surf, edge ribbons, `face_tile`, `wall_tile`, `vertex_start`/`vertex_count`) | `buildMesh` | ported |
 | `build_fields(&sphere, &frames, &snapshot, px)` -> `Option<Fields>` (surface, posts, zone/parcel/fence counts) | `buildFields` | ported |
 | `build_forest(&sphere, &frames, &snapshot, px, seed)` -> `Option<Forest>` (crowns and understory discs in one mesh, plus zone, tile and crown counts) | `buildForest` | ported |
@@ -47,6 +47,10 @@ territory outline and the space pass.
 - The see-through hole rests shut (`HOLE_REST_OPEN` is 1), so a deck costs its fragment nothing
   until something opens the cap. Its cosines go through `cl_noise::js::cos`, not `libm`, because
   the prototype's values come from V8's `Math.cos`.
+- `hole_at` tracks the camera's distance, not a clock: the opening widens and deepens together as
+  the camera closes in. Its window (6.0 down to 5.0) sits almost at full zoom-out on purpose — the
+  camera opens at 3.3, so the hole is already open on the first frame. A deck with the hole left
+  shut reads as a solid blanket, which is what the prototype shows only at the top of the range.
 
 ## Testing
 `tests/fixtures.rs` compares each ported builder with `fixtures/scenery/*.json`: vertex counts,

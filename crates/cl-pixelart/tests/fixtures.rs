@@ -15,6 +15,7 @@ use cl_pixelart::{
     DITHER_FLOOR, DITHER_RANKS, Filter, GRASS_DITHER, GRASS_F0, GRASS_OCT, MUD_DITHER, MUD_EDGE,
     MUD_F0, MUD_OCT, MUD_SALT, MUD_SCATTER, SEA_F0, SEA_FADE, SEA_OCT, SEA_SHALLOW, SPECKLE, Wrap,
     build_terrain_atlas, make_cliff_texture, make_cloud_sky, make_field_texture, make_foam_texture,
+    sky_seed,
 };
 use serde_json::Value;
 
@@ -101,6 +102,14 @@ fn cloud_sky_matches_prototype_exactly() {
     let sky = make_cloud_sky(SKY_SEED);
     let meta = json("pixelart/sky-s3521.json");
     assert_eq!(meta["seed"].as_f64().unwrap(), SKY_SEED);
+    // The harness seeds the sky the way the prototype's call site does, from the n=8 world's seed.
+    // Pinning the derivation here is what stops the app feeding the raw world seed to the sky.
+    let world_seed = json("worldgen/n8-s63352.json")["seed"].as_u64().unwrap() as u32;
+    assert_eq!(
+        sky_seed(world_seed),
+        SKY_SEED,
+        "sky seed derived from {world_seed}"
+    );
     assert_eq!(u64::from(sky.width), meta["W"].as_u64().unwrap(), "width");
     assert_eq!(u64::from(sky.height), meta["H"].as_u64().unwrap(), "height");
     for (k, deck) in sky.decks.iter().enumerate() {

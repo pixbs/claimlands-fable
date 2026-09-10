@@ -8,7 +8,7 @@ use cl_hexsphere::{Frames, HexSphere, compute_tile_frames};
 use cl_model::{Texture, WorldSnapshot, hex_rgb};
 use cl_pixelart::{
     Atlas, DITHER_FLOOR, FOAM_FRAMES, build_terrain_atlas, make_cliff_texture, make_cloud_sky,
-    make_field_texture, make_foam_texture, palette,
+    make_field_texture, make_foam_texture, palette, sky_seed,
 };
 use cl_render::{
     DrawUniform, FLAG_CLOUD_HOLE, FLAG_TEXTURED, FLAG_VERTEX_COLOR, GpuTexture, Material,
@@ -16,7 +16,7 @@ use cl_render::{
 };
 use cl_scenery::{
     Fields, Forest, Houses, Terrain, build_atmosphere, build_clouds, build_fields, build_forest,
-    build_houses, build_terrain, hole_rest,
+    build_houses, build_terrain, hole_at, hole_rest,
 };
 
 /// The surf steps one frame every this many milliseconds.
@@ -151,7 +151,13 @@ impl Planet {
         let cliff_map = upload(&make_cliff_texture());
         let foam_map = upload(&make_foam_texture());
         let field_map = upload(&make_field_texture());
-        let sky_maps: Vec<GpuTexture> = make_cloud_sky(seed).decks.iter().map(upload).collect();
+        // The sky runs on its own stream: the prototype folds the world seed at the call site so
+        // the weather does not correlate with the terrain grown from the same number.
+        let sky_maps: Vec<GpuTexture> = make_cloud_sky(sky_seed(snapshot.seed))
+            .decks
+            .iter()
+            .map(upload)
+            .collect();
 
         let textured = DrawUniform {
             flags: FLAG_TEXTURED | FLAG_VERTEX_COLOR,
@@ -327,6 +333,21 @@ impl Planet {
         }
         for deck in &mut self.clouds.decks {
             deck.uniform.model = scaled(model, deck.scale);
+            deck.material.set(queue, &deck.uniform);
+        }
+    }
+
+    /// Opens the see-through hole for the camera's distance. Scrolling in opens a hole in the
+    /// weather over what the camera points at rather than thinning the whole sky, and because the
+    /// dither lives in the texture at one texel per world pixel its rim breaks into world-pixel
+    /// speckle by itself. The camera stays on `+z` looking at the origin — the planet spins, not
+    /// the camera — so the opening always faces the viewer and only its width and depth change.
+    ///
+    /// Call it whenever the distance changes; it writes only the decks.
+    pub fn set_camera_distance(&mut self, queue: &wgpu::Queue, distance: f32) {
+        let [out, inner, open] = hole_at(f64::from(distance));
+        for deck in &mut self.clouds.decks {
+            deck.uniform.params = [DITHER_FLOOR as f32, out as f32, inner as f32, open as f32];
             deck.material.set(queue, &deck.uniform);
         }
     }

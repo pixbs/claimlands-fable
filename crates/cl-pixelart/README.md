@@ -15,7 +15,7 @@ prototype sections 2, 3b, 4b (texture), the cloud sky and the glow.
 | `make_foam_texture()` | `makeFoamTexture` (8-frame sheet) | ported |
 | `make_field_texture()`, `field_row_v` | `makeFieldTexture`, `fieldRowV` | ported |
 | `build_terrain_atlas`, `Atlas::refresh` / `Atlas::repaint`, `CoastFields` | `buildTerrainAtlas` | ported |
-| `make_cloud_sky`, `Sky`, `CloudDeck`, `CLOUD_DECKS` | `makeCloudSky` | ported |
+| `make_cloud_sky`, `Sky`, `CloudDeck`, `CLOUD_DECKS`, `sky_seed` | `makeCloudSky`, its `buildClouds` call site | ported |
 | `make_glow` | `makeGlow` | issue M1 |
 
 ## Invariants
@@ -28,6 +28,9 @@ prototype sections 2, 3b, 4b (texture), the cloud sky and the glow.
   rebuild; they exist only to avoid repainting the whole planet.
 - A capital paints as a village: the prototype has only `houses`, and a capital walks the ground
   bare the same way.
+- The sky runs on its own stream: `sky_seed` folds the world seed to `(seed % 9973) + 7`, as the
+  prototype's call site does, so weather does not correlate with the terrain grown from the same
+  number. Feeding `make_cloud_sky` a raw world seed gives a valid sky of the wrong world.
 - The sky is a function of the seed alone; its size never is. One sky is shared by every world
   size, so `CLOUD_TEX_W` is fixed and the height follows from the equal-area aspect (`W / π`,
   rounded to a multiple of four).
