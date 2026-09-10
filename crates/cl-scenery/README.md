@@ -13,7 +13,7 @@ territory outline and the space pass.
 | `build_cloud_shell(&sphere, &frames, px)` | `buildCloudShell` | ported |
 | `build_terrain(&sphere, &frames, &snapshot, &atlas)` -> `Terrain` (fans, cliff wedges, surf, edge ribbons, `face_tile`, `wall_tile`, `vertex_start`/`vertex_count`) | `buildMesh` | ported |
 | `build_fields` (zones, parcels, fences) | `buildFields` | issue M1 |
-| `build_forest` | `buildForest` | issue M1 |
+| `build_forest(&sphere, &frames, &snapshot, px, seed)` -> `Option<Forest>` (crowns and understory discs in one mesh, plus zone, tile and crown counts) | `buildForest` | ported |
 | `build_houses` | `buildHouses` | issue M1 |
 | `build_border`, `hover_ring` | `rebuildBorder`, `setRing` | issue M1 |
 | `build_space(w, h)` (vignette + stars), `step_stars` | `buildSpace`, `stepStars` | issue M1 |
@@ -28,6 +28,11 @@ territory outline and the space pass.
   unlit and need no normals.
 - Corner displacement along a coast is a property of the corner, not of the tile asking for it, so
   both tiles meeting there place the wedge foot at the same point and the coastline cannot crack.
+- Cover is laid out per *zone*, never per tile: a zone is a connected run of one cover, capped at
+  the angle one tangent plane describes without stretching, and laying it out as one piece is what
+  lets scenery merge across a hex seam. Anything rooted on a tile sits on that tile's facet plane
+  along the ray through the point, so two tiles sharing an edge agree there.
+- Crowns are never clipped to their tile: the treeline spills past the hex border on purpose.
 
 ## Testing
 `tests/fixtures.rs` compares each ported builder with `fixtures/scenery/*.json`: vertex counts,

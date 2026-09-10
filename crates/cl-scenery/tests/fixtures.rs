@@ -8,7 +8,12 @@ use std::path::PathBuf;
 use cl_hexsphere::{HexSphere, compute_tile_frames};
 use cl_model::{Cover, Terrain, TileId, TileState, WorldSnapshot};
 use cl_pixelart::build_terrain_atlas;
-use cl_scenery::{build_atmosphere, build_cloud_shell, build_terrain};
+use cl_scenery::{
+    BUSH_CHANCE, BUSH_MARGIN_PX, CANOPY_BODY, CANOPY_ZONE_F, CANOPY_ZONES, CROWN_JIT, CROWN_PX,
+    CROWN_STEP, FLOOR_GROW, FLOOR_LIFT_PX, FLOOR_R_MIN, FLOOR_SHADE, FOREST_SPAN, TREE_H_PX,
+    TREE_MAX, TREE_MIN, TREE_SINK_PX, VIGOUR_F, build_atmosphere, build_cloud_shell, build_forest,
+    build_terrain,
+};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
@@ -268,5 +273,87 @@ fn terrain_meshes_match_prototype_worlds() {
             .collect();
         assert_eq!(terrain.vertex_start, starts, "{tag} vertexStart");
         assert_eq!(terrain.vertex_count, counts, "{tag} vertexCount");
+    }
+}
+
+#[test]
+fn forest_meshes_match_prototype_worlds() {
+    for tag in ["n4-s31676", "n4-s1234", "n8-s63352"] {
+        let f = fixture(&format!("{tag}-cover.json"));
+        let (sphere, snapshot) = world(tag);
+        let frames = compute_tile_frames(&sphere, &snapshot.levels());
+        let forest = build_forest(
+            &sphere,
+            &frames,
+            &snapshot,
+            frames.px,
+            f64::from(snapshot.seed),
+        )
+        .expect("every prototype world carries forest");
+        let want = &f["forest"];
+        assert_eq!(
+            forest.zones,
+            want["zones"].as_u64().unwrap() as usize,
+            "{tag} forest zones"
+        );
+        assert_eq!(
+            forest.tiles,
+            want["tiles"].as_u64().unwrap() as usize,
+            "{tag} forest tiles"
+        );
+        assert_eq!(
+            forest.crowns,
+            want["crowns"].as_u64().unwrap() as usize,
+            "{tag} forest crowns"
+        );
+        for (name, got) in [
+            ("position", &forest.surface.positions),
+            ("color", &forest.surface.colors),
+            ("normal", &forest.surface.normals),
+        ] {
+            check_attribute(&format!("{tag} forest.{name}"), got, &want["surface"][name]);
+        }
+        assert!(
+            forest.surface.validate().is_ok(),
+            "{tag} forest: {:?}",
+            forest.surface.validate()
+        );
+    }
+}
+
+#[test]
+fn forest_constants_match_prototype() {
+    let path: PathBuf = [env!("CARGO_MANIFEST_DIR"), "..", "..", "fixtures"]
+        .iter()
+        .collect();
+    let c: Value =
+        serde_json::from_str(&fs::read_to_string(path.join("constants.json")).unwrap()).unwrap();
+    assert_eq!(c["CANOPY"]["body"], CANOPY_BODY);
+    let zones: Vec<String> = c["CANOPY"]["zones"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s.as_str().unwrap().to_owned())
+        .collect();
+    assert_eq!(zones, CANOPY_ZONES);
+    for (name, value) in [
+        ("CROWN_PX", CROWN_PX),
+        ("CROWN_STEP", CROWN_STEP),
+        ("CROWN_JIT", CROWN_JIT),
+        ("TREE_H_PX", TREE_H_PX),
+        ("TREE_SINK_PX", TREE_SINK_PX),
+        ("BUSH_MARGIN_PX", BUSH_MARGIN_PX),
+        ("BUSH_CHANCE", BUSH_CHANCE),
+        ("CANOPY_ZONE_F", CANOPY_ZONE_F),
+        ("TREE_MIN", TREE_MIN),
+        ("TREE_MAX", TREE_MAX),
+        ("VIGOUR_F", VIGOUR_F),
+        ("FLOOR_R_MIN", FLOOR_R_MIN),
+        ("FLOOR_GROW", FLOOR_GROW),
+        ("FLOOR_LIFT_PX", FLOOR_LIFT_PX),
+        ("FLOOR_SHADE", FLOOR_SHADE),
+        ("FOREST_SPAN", FOREST_SPAN),
+    ] {
+        assert_eq!(c[name].as_f64().unwrap(), value, "{name}");
     }
 }
