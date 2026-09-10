@@ -1,10 +1,12 @@
-//! The two shells built from the tiling alone: the atmosphere rim and the cloud deck shell.
+//! The two shells built from the tiling alone: the atmosphere rim and the cloud deck shell, plus
+//! the stack of decks that ride the second one.
 
 use cl_hexsphere::{Frames, HexSphere};
 use cl_model::MeshData;
-use cl_model::world::{ATMO_PX, CLOUD_PX, RADIUS};
-use cl_noise::js::{hypot2, sin};
+use cl_model::world::{ATMO_PX, CLOUD_LIFT_PX, CLOUD_PX, RADIUS};
+use cl_noise::js::{cos, hypot2, sin};
 use cl_noise::vec::{add, mul, norm};
+use cl_pixelart::CLOUD_DECKS;
 
 /// A mesh on a sphere shell, with the radius the app needs for the halo and the deck spacing.
 #[derive(Debug, Clone, PartialEq)]
@@ -91,6 +93,55 @@ pub fn build_cloud_shell(sphere: &HexSphere, frames: &Frames, px: f64) -> Shell 
         }
     }
     Shell { radius: rad, mesh }
+}
+
+/// Resting outer angle of the see-through hole, in radians. The camera's distance drives the cap
+/// from here (its own issue); at rest the hole is shut and these only seed the uniform.
+pub const HOLE_REST_OUT: f64 = 0.7;
+/// Resting inner angle of the see-through hole, in radians.
+pub const HOLE_REST_IN: f64 = 0.3;
+/// How far the hole is open at rest: 1 is shut, so the cap has no effect until something opens it.
+pub const HOLE_REST_OPEN: f64 = 1.0;
+
+/// The resting cap as the deck's shader wants it: cosine of the outer angle, cosine of the inner,
+/// and how far the hole is open. Shut at rest, so it costs the fragment nothing until opened.
+pub fn hole_rest() -> [f64; 3] {
+    [cos(HOLE_REST_OUT), cos(HOLE_REST_IN), HOLE_REST_OPEN]
+}
+
+/// Where one cloud deck sits on the shared shell. The decks differ only in how far they are scaled
+/// out, the tint they are drawn in, and the order they are drawn in — the geometry is the same
+/// shell for all three, as it is in the prototype.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Deck {
+    /// Factor the shared shell is scaled by, so deck `k` sits `k * CLOUD_LIFT_PX` above the first.
+    pub scale: f64,
+    /// Tint the deck is drawn in; the texture itself is white.
+    pub tone: &'static str,
+    /// The prototype's `renderOrder`: decks are drawn low to high.
+    pub render_order: i32,
+}
+
+/// The cloud stack: one shell and the three decks that ride it, outermost tint last.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Clouds {
+    /// The shell every deck is drawn from.
+    pub shell: Shell,
+    /// The decks, parallel to `cl_pixelart::CLOUD_DECKS`.
+    pub decks: [Deck; 3],
+}
+
+/// The cloud stack for a world. Scaling one shell rather than building three keeps the decks
+/// exactly concentric and uploads a third of the geometry; the prototype shares its geometry the
+/// same way.
+pub fn build_clouds(sphere: &HexSphere, frames: &Frames, px: f64) -> Clouds {
+    let shell = build_cloud_shell(sphere, frames, px);
+    let decks = std::array::from_fn(|k| Deck {
+        scale: (shell.radius + k as f64 * CLOUD_LIFT_PX * px) / shell.radius,
+        tone: CLOUD_DECKS[k].tone,
+        render_order: k as i32,
+    });
+    Clouds { shell, decks }
 }
 
 #[cfg(test)]

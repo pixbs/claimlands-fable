@@ -17,6 +17,9 @@ pub const LEVEL_PX: f64 = 4.0;
 pub const ATMO_PX: f64 = 12.0;
 /// Lowest cloud deck above the atmosphere, in texture pixels.
 pub const CLOUD_PX: f64 = 8.0;
+/// Each cloud deck above the one below, in texture pixels. Small on purpose: the stack has to read
+/// as a stepped mound, not as three separate skies.
+pub const CLOUD_LIFT_PX: f64 = 2.0;
 
 /// Number of tiles on a hex sphere of frequency `n`: always `10n² + 2`, twelve of them pentagons.
 pub fn tile_count(n: u8) -> usize {

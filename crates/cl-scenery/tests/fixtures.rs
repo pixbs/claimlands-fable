@@ -7,16 +7,18 @@ use std::path::PathBuf;
 
 use cl_hexsphere::{HexSphere, compute_tile_frames};
 use cl_model::{Cover, Terrain, TileId, TileState, WorldSnapshot};
-use cl_pixelart::build_terrain_atlas;
+use cl_noise::js::cos;
+use cl_pixelart::{CLOUD_DECKS, CLOUD_TEX_W, DITHER_FLOOR, build_terrain_atlas, make_cloud_sky};
 use cl_scenery::{
     BUSH_CHANCE, BUSH_MARGIN_PX, CANOPY_BODY, CANOPY_ZONE_F, CANOPY_ZONES, CHIM_ODDS, CHIM_PX,
     CHIM_RISE_MAX, CHIM_RISE_MIN, CROWN_JIT, CROWN_PX, CROWN_STEP, DOOR_H, DOOR_W, FLOOR_GROW,
-    FLOOR_LIFT_PX, FLOOR_R_MIN, FLOOR_SHADE, FOREST_SPAN, HOUSE_LEN_MAX, HOUSE_LEN_MIN, HOUSE_ODDS,
-    HOUSE_OPEN, HOUSE_ROOF, HOUSE_ROT_JIT, HOUSE_SINK, HOUSE_SPAN, HOUSE_SPAN_MAX, HOUSE_SPAN_MIN,
-    HOUSE_TURNS, HOUSE_WALLS, L_CHANCE, PLOT_JIT, PLOT_PX, RIDGE_CAP_PX, ROOF_LIP, ROOF_OVER,
-    STRIPE_ODDS, STRIPE_PX, TREE_H_PX, TREE_MAX, TREE_MIN, TREE_SINK_PX, VERGE_ODDS, VERGE_PX,
-    VIGOUR_F, WALL_MAX, WALL_MIN, WIN_PX, build_atmosphere, build_cloud_shell, build_fields,
-    build_forest, build_houses, build_terrain,
+    FLOOR_LIFT_PX, FLOOR_R_MIN, FLOOR_SHADE, FOREST_SPAN, HOLE_REST_IN, HOLE_REST_OPEN,
+    HOLE_REST_OUT, HOUSE_LEN_MAX, HOUSE_LEN_MIN, HOUSE_ODDS, HOUSE_OPEN, HOUSE_ROOF, HOUSE_ROT_JIT,
+    HOUSE_SINK, HOUSE_SPAN, HOUSE_SPAN_MAX, HOUSE_SPAN_MIN, HOUSE_TURNS, HOUSE_WALLS, L_CHANCE,
+    PLOT_JIT, PLOT_PX, RIDGE_CAP_PX, ROOF_LIP, ROOF_OVER, STRIPE_ODDS, STRIPE_PX, TREE_H_PX,
+    TREE_MAX, TREE_MIN, TREE_SINK_PX, VERGE_ODDS, VERGE_PX, VIGOUR_F, WALL_MAX, WALL_MIN, WIN_PX,
+    build_atmosphere, build_cloud_shell, build_clouds, build_fields, build_forest, build_houses,
+    build_terrain,
 };
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -90,6 +92,87 @@ fn check_attribute(name: &str, got: &[f32], want: &Value) {
         want["sha256_f32"].as_str().unwrap(),
         "{name} sha256 of f32 bytes"
     );
+}
+
+#[test]
+fn cloud_deck_stack_matches_prototype() {
+    let f = fixture("clouds-n8.json");
+    let tag = "n8-s63352";
+    let sphere = HexSphere::build(8);
+    let frames = compute_tile_frames(&sphere, &levels(tag));
+    let clouds = build_clouds(&sphere, &frames, frames.px);
+
+    assert_eq!(
+        sphere.len() as u64,
+        f["tileCount"].as_u64().unwrap(),
+        "tile count"
+    );
+    assert_eq!(
+        clouds.shell.radius,
+        f["radius"].as_f64().unwrap(),
+        "shell radius"
+    );
+
+    // The stack is drawn from one sky, so the atlas the fixture records is that sky's size.
+    let sky = make_cloud_sky(f["seed"].as_f64().unwrap());
+    let atlas = f["atlas"].as_array().unwrap();
+    assert_eq!(u64::from(sky.width), atlas[0].as_u64().unwrap(), "atlas w");
+    assert_eq!(u64::from(sky.height), atlas[1].as_u64().unwrap(), "atlas h");
+    assert_eq!(sky.width, CLOUD_TEX_W);
+
+    for (k, deck) in clouds.decks.iter().enumerate() {
+        let want = &f["decks"][k];
+        assert_eq!(
+            deck.scale.to_bits(),
+            want["scale"].as_f64().unwrap().to_bits(),
+            "deck {k} scale"
+        );
+        assert_eq!(
+            i64::from(deck.render_order),
+            want["renderOrder"].as_i64().unwrap(),
+            "deck {k} render order"
+        );
+        assert_eq!(want["material"]["color"], deck.tone, "deck {k} tone");
+        assert_eq!(
+            deck.tone, CLOUD_DECKS[k].tone,
+            "deck {k} tone matches the sky"
+        );
+        assert_eq!(
+            want["material"]["alphaTest"].as_f64().unwrap(),
+            DITHER_FLOOR,
+            "deck {k} alphaTest is the dither floor"
+        );
+        assert_eq!(want["material"]["side"], "DoubleSide", "deck {k} side");
+        assert_eq!(want["material"]["transparent"], false, "deck {k}");
+        assert_eq!(
+            want["material"]["opacity"].as_f64().unwrap(),
+            1.0,
+            "deck {k}"
+        );
+        // The hole rests shut; its angles are the prototype's initial cap. `uFocus` is not
+        // compared: the harness's `Vector3` stub drops its arguments, so the fixture records
+        // (0,0,0) where the prototype passes (0,0,1).
+        let u = &want["uniforms"];
+        assert_eq!(
+            u["uOpen"].as_f64().unwrap(),
+            HOLE_REST_OPEN,
+            "deck {k} hole shut"
+        );
+        assert_eq!(
+            u["uHoleOut"].as_f64().unwrap().to_bits(),
+            cos(HOLE_REST_OUT).to_bits(),
+            "deck {k} hole outer angle"
+        );
+        assert_eq!(
+            u["uHoleIn"].as_f64().unwrap().to_bits(),
+            cos(HOLE_REST_IN).to_bits(),
+            "deck {k} hole inner angle"
+        );
+    }
+    // Deck 0 rides the shell itself; each one after it stands off by the same step.
+    assert_eq!(clouds.decks[0].scale, 1.0);
+    let step = clouds.decks[1].scale - clouds.decks[0].scale;
+    assert!((clouds.decks[2].scale - clouds.decks[1].scale - step).abs() < 1e-12);
 }
 
 #[test]
