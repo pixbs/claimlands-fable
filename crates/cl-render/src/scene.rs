@@ -5,7 +5,7 @@
 //! vertex colours, the alphaTest threshold, the see-through hole — is a uniform, so the pipeline
 //! set stays small: one per distinct combination of cull, blend, depth, bias and topology.
 
-use cl_model::{Filter, MeshData, Texture, Wrap};
+use cl_model::{Filter, MeshData, RgbaImage, Texture, Wrap};
 use wgpu::util::DeviceExt;
 
 /// Depth format of the low-resolution target. `Depth24Plus` is renderable everywhere the game runs,
@@ -195,12 +195,21 @@ impl MaterialDesc {
         Self::lambert_double_sided()
     }
 
-    /// Flat colour from both sides: the debug edges and the atmosphere.
+    /// Flat colour, back faces dropped: three.js' `MeshBasicMaterial` default, which is what the
+    /// atmosphere uses. Its shell is built with its winding reversed, so the near half is the culled
+    /// half and only the rim beyond the planet's silhouette survives.
     pub fn unlit() -> Self {
         Self {
             shading: Shading::Unlit,
-            cull: Cull::None,
             ..Self::default()
+        }
+    }
+
+    /// Flat colour from both sides: the debug edges, the territory outline and the halo.
+    pub fn unlit_double_sided() -> Self {
+        Self {
+            cull: Cull::None,
+            ..Self::unlit()
         }
     }
 
@@ -209,7 +218,7 @@ impl MaterialDesc {
     pub fn border() -> Self {
         Self {
             depth_bias: (-2, -2),
-            ..Self::unlit()
+            ..Self::unlit_double_sided()
         }
     }
 
@@ -218,7 +227,7 @@ impl MaterialDesc {
         Self {
             blend: Blend::Alpha,
             depth: Depth::ReadOnly,
-            ..Self::unlit()
+            ..Self::unlit_double_sided()
         }
     }
 
@@ -487,7 +496,7 @@ impl Renderer {
         });
         queue.write_texture(
             gpu.as_image_copy(),
-            &texture.image.data,
+            &flip_y(&texture.image),
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
                 bytes_per_row: Some(texture.image.width * 4),
@@ -655,6 +664,19 @@ impl Renderer {
     }
 }
 
+/// Rows reversed, which is what three.js' `texture.flipY` does on upload — on by default, so every
+/// texture the prototype builds is sampled that way and every `v` the port computes assumes it. The
+/// atlas' `rows - 1 - cellRow` and the surf sheet's frame order are both written for a flipped
+/// sheet; upload it unflipped and the planet wears its ground upside down.
+fn flip_y(image: &RgbaImage) -> Vec<u8> {
+    let stride = (image.width * 4) as usize;
+    let mut out = Vec::with_capacity(image.data.len());
+    for y in (0..image.height as usize).rev() {
+        out.extend_from_slice(&image.data[y * stride..(y + 1) * stride]);
+    }
+    out
+}
+
 /// One opaque white texel, bound wherever a material has no map so that the layout stays uniform.
 /// White because the shader multiplies the material colour by it.
 fn white_texture(device: &wgpu::Device, queue: &wgpu::Queue) -> GpuTexture {
@@ -727,6 +749,10 @@ mod tests {
     fn material_presets_match_the_visuals_table() {
         assert_eq!(MaterialDesc::border().depth_bias, (-2, -2));
         assert_eq!(MaterialDesc::border().cull, Cull::None);
+        // The atmosphere is the one unlit mesh that keeps its back faces culled: that is how a
+        // reverse-wound shell shows only its far half.
+        assert_eq!(MaterialDesc::unlit().cull, Cull::Back);
+        assert_eq!(MaterialDesc::unlit_double_sided().cull, Cull::None);
         assert_eq!(MaterialDesc::halo().depth, Depth::ReadOnly);
         assert_eq!(MaterialDesc::halo().blend, Blend::Alpha);
         assert_eq!(MaterialDesc::space().depth, Depth::Off);

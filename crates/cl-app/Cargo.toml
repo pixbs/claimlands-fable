@@ -15,10 +15,13 @@ crate-type = ["cdylib", "rlib", "staticlib"]
 cl-model = { workspace = true }
 cl-hexsphere = { workspace = true }
 cl-worldgen = { workspace = true }
+cl-pixelart = { workspace = true }
+cl-scenery = { workspace = true }
 cl-render = { workspace = true }
 cl-ui = { workspace = true }
 winit = { workspace = true }
 wgpu = { workspace = true }
+glam = { workspace = true }
 egui = { workspace = true }
 egui-wgpu = { workspace = true }
 egui-winit = { workspace = true }
@@ -27,7 +30,7 @@ log = { workspace = true }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { workspace = true }
 wasm-bindgen-futures = { workspace = true }
-web-sys = { workspace = true, features = ["Window", "Document", "Element", "HtmlCanvasElement", "CssStyleDeclaration"] }
+web-sys = { workspace = true, features = ["Window", "Document", "Element", "HtmlCanvasElement", "CssStyleDeclaration", "Performance"] }
 console_error_panic_hook = { workspace = true }
 console_log = { workspace = true }
 
