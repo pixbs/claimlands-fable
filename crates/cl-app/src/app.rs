@@ -24,6 +24,22 @@ const MOUSE: u64 = u64::MAX;
 /// Default pixel scale (`pixelScale = 3` in the prototype).
 const PIXEL_SCALE: u32 = 3;
 
+/// The size to configure the surface with once the GPU is ready, given what the window reported
+/// when it was created and what it reports now.
+///
+/// On the web the canvas has no layout when the window is created, so the first of those is
+/// `0 × 0`, and the `Resized` carrying the real size arrives while [`Gpu::new`] is still awaiting
+/// the adapter — with no GPU to hand it to. winit then stays quiet until the window changes size
+/// again, so reading the window once more at the end of start-up is what keeps the surface off
+/// `1 × 1`. The size at creation only stands in while the window still has none of its own.
+fn startup_size(at_creation: (u32, u32), now: (u32, u32)) -> (u32, u32) {
+    if now.0 > 0 && now.1 > 0 {
+        now
+    } else {
+        at_creation
+    }
+}
+
 /// egui state bound to one window and one surface format.
 struct EguiLayer {
     ctx: egui::Context,
@@ -328,7 +344,15 @@ impl ApplicationHandler for App {
         let slot = self.gpu.clone();
         let init = async move {
             match Gpu::new(window.clone(), size.width, size.height, scale, PIXEL_SCALE).await {
-                Ok(gpu) => {
+                Ok(mut gpu) => {
+                    // A `Resized` that arrived while this future was awaiting the adapter found
+                    // no GPU to resize; asking the window again is what catches it.
+                    let started_at = (size.width, size.height);
+                    let latest = window.inner_size();
+                    let size = startup_size(started_at, (latest.width, latest.height));
+                    if size != started_at {
+                        gpu.resize(size.0, size.1, window.scale_factor());
+                    }
                     *slot.borrow_mut() = Some(gpu);
                     window.request_redraw();
                 }
@@ -403,5 +427,23 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => self.redraw(),
             _ => {}
         }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::pedantic)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_resize_during_gpu_start_up_is_not_lost() {
+        // The web: no canvas layout when the window is created, the real size delivered while the
+        // GPU was still starting. Taking the creation size here is what left the surface at 1x1.
+        assert_eq!(startup_size((0, 0), (1350, 1270)), (1350, 1270));
+        // Any platform: a resize that landed mid-start-up wins over the size at creation.
+        assert_eq!(startup_size((1280, 720), (1000, 700)), (1000, 700));
+        // A window that still reports nothing keeps what it was created at rather than collapsing.
+        assert_eq!(startup_size((1280, 720), (0, 0)), (1280, 720));
+        assert_eq!(startup_size((1280, 720), (1000, 0)), (1280, 720));
     }
 }
