@@ -51,3 +51,17 @@ constant of the prototype) and in the crate that ports them; tests compare the t
 - Fixtures: every texture as PNG, every mesh as exact `f32` hashes (`docs/testing.md`).
 - Preview: each PR deploys the game with the prototype at `/reference/` for A/B at the same seed.
 - Visual regression (M1): a headless screenshot at a fixed seed and camera compared with a baseline.
+
+## Approved supplemental designs
+
+The capital decision in #57 is a procedurally composed castle with a faction-coloured flat banner.
+Its seeded families are A (single keep), B (twin gate) and C (four-tower courtyard). The approved
+unit markers are the original Pawn A, Pawn B, Warrior with inward kite shield and Knight with
+pennant. Pawn A/B are appearance alternatives for one unit kind. Availability uses a five-point
+star rotating about local Y every 8 seconds on a camera-oriented mount.
+
+The [reference pack](../../reference/designs/README.md) records separate executable pages, source,
+palette, world-pixel dimensions and placement rules. It excludes the later compact figurines and
+fixed castle compositions. These supplemental designs extend the frozen prototype with new game
+objects; they do not revise its scenery or fixtures. Issue #34 owns Rust units/stars, #72 owns
+Rust procedural capital meshes, and #11 remains the exact prototype village port.

@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Procedural capital — Claim Lands reference</title><link rel="stylesheet" href="style.css"></head>
+<body><main><nav aria-label="Reference designs"><a href="capital.html">Procedural capital</a><a href="pawn-a.html">Pawn A</a><a href="pawn-b.html">Pawn B</a><a href="warrior.html">Warrior</a><a href="knight.html">Knight</a><a href="star.html">Availability star</a></nav><h1>Procedural capital</h1><p class="intro">Approved reference · prototype palette · drag to orbit, scroll to zoom</p><div id="capital-composer">
+  <div class="viz-controls">
+    <label class="form-label">Composition<select id="cc-family" class="form-select"><option value="mixed">Mix A, B and C</option><option value="A">Castle A · single keep</option><option value="B">Castle B · twin gate</option><option value="C">Castle C · courtyard</option></select></label>
+    <label class="form-label">Seed<input id="cc-seed" class="form-control" value="1042" maxlength="64" spellcheck="false"></label>
+  </div>
+  <div class="viz-row"><button id="cc-prev" class="btn" type="button" disabled>← Previous</button><button id="cc-next" class="btn btn-primary" type="button">New castle →</button><button id="cc-spin" class="btn" type="button" aria-pressed="false">Turntable</button></div>
+  <canvas id="cc-main" role="img" aria-label="Procedurally generated castle on one hex tile. Drag to rotate and tilt, scroll to zoom.">Rotatable procedural castle.</canvas>
+  <div id="cc-detail" class="text-small" aria-live="polite"></div>
+  <div id="cc-distances">
+    <figure><canvas id="cc-far" role="img" aria-label="Castle at one screen pixel per world pixel"></canvas><figcaption class="text-small">Far · 1 px / world pixel</figcaption></figure>
+    <figure><canvas id="cc-mid" role="img" aria-label="Castle at two screen pixels per world pixel"></canvas><figcaption class="text-small">Mid · 2 px / world pixel</figcaption></figure>
+    <figure><canvas id="cc-near" role="img" aria-label="Castle at three screen pixels per world pixel"></canvas><figcaption class="text-small">Near · 3 px / world pixel</figcaption></figure>
+  </div>
+  <div class="viz-controls">
+    <label class="form-label">Orbit <span id="cc-degrees" class="tabular-nums">35°</span><input id="cc-orbit" class="form-range" type="range" min="0" max="360" value="35"></label>
+    <label class="form-label">View<select id="cc-view" class="form-select"><option value="map">Map angle</option><option value="front">Low angle</option><option value="plan">From above</option></select></label>
+    <label class="form-label">Banner<select id="cc-banner" class="form-select"><option value="#4c92b2">Blue</option><option value="#b44e36">Red</option><option value="#d7b543">Yellow</option><option value="#4c813a">Green</option></select></label>
+  </div>
+  <div id="cc-error" role="alert" hidden></div>
+</div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script><script src="capital-layout.js"></script><script src="capital.js"></script></body></html>
