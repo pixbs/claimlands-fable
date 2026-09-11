@@ -16,7 +16,7 @@ prototype sections 2, 3b, 4b (texture), the cloud sky and the glow.
 | `make_field_texture()`, `field_row_v` | `makeFieldTexture`, `fieldRowV` | ported |
 | `build_terrain_atlas`, `Atlas::refresh` / `Atlas::repaint`, `CoastFields` | `buildTerrainAtlas` | ported |
 | `make_cloud_sky`, `Sky`, `CloudDeck`, `CLOUD_DECKS`, `sky_seed` | `makeCloudSky`, its `buildClouds` call site | ported |
-| `make_glow` | `makeGlow` | issue M1 |
+| `make_glow`, `GLOW_OUT` / `GLOW_BACK` / `GLOW_MAX` | `makeGlow` | ported |
 
 ## Invariants
 - Output is a function of constants and the seed only; no time, no platform calls.
@@ -38,12 +38,16 @@ prototype sections 2, 3b, 4b (texture), the cloud sky and the glow.
   rank so the shader dissolves a deck by lowering opacity rather than by repainting.
 - Deck coverage is a quantile of the texels, and the grid is equal-area, so a deck's covered share
   equals its stated `cover`.
+- The halo is the one texture sampled linearly rather than nearest: it is a glow, not pixel art, and
+  nearest bands its gradient into rings. Its colour is flat `AIR_COLOR` throughout and the whole
+  shape lives in the alpha channel.
 
 ## Testing
 `tests/fixtures.rs` decodes `fixtures/pixelart/*.png` and compares texel bytes. Every strip is
 exact, the ones sampling `hash2` (cliff, foam) included, and so are the ground atlas of all three
 prototype worlds together with its per-tile and per-corner coast fields, and all three cloud decks
-of `sky-s3521`. The atlas test builds its snapshot from `fixtures/worldgen/*.json`, so it pins the
+of `sky-s3521`, and the halo against `glow.png` together with the sampler and material rows of
+`glow.json`. The atlas test builds its snapshot from `fixtures/worldgen/*.json`, so it pins the
 port against the prototype's own levels and cover rather than against `cl-worldgen`. `src/atlas.rs`
 covers `refresh` and `repaint` against a full rebuild; `src/sky.rs` covers the properties the
 fixture cannot state — that the decks terrace inward and each covers its stated share of sky.

@@ -19,6 +19,7 @@ no desktop binary. Local runs use the web build.
 | Tap picking and the hover ring | prototype section 6 | issue M1 |
 | Surf clock | section 8 | ported |
 | Cloud decks: one shell, one material per deck; `Planet::set_camera_distance` opens the see-through hole | section 5 (`buildClouds`), the see-through half of `stepSky` | ported |
+| `Halo`, `placement` | `makeGlow`'s quad and its per-frame parking | ported |
 | Scene sync from `cl-session` events; star and cloud-drift clocks | sections 5, 8 | issues M1, M3 |
 
 ## Invariants
@@ -39,6 +40,10 @@ no desktop binary. Local runs use the web build.
   faces the viewer and only its width and depth change.
 - A frame is two passes into one target: the backdrop clears the colour and writes no depth, then
   the depth clear starts the planet, so nothing behind the planet can ever occlude it.
+- The halo belongs to the planet's pass rather than to the backdrop's: the trackball never reaches
+  it, so the world spins underneath a halo that stays put, but it is drawn after the depth clear
+  like the rest of the scene. It is parked behind the planet and scaled by the ratio of the camera's
+  two distances, which keeps it the same multiple of the atmosphere at every zoom.
 
 ## Testing
 The camera and trackball are unit tested: the zoom range and its wheel and pinch ratios, the basis
