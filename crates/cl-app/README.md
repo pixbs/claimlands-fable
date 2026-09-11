@@ -18,6 +18,7 @@ no desktop binary. Local runs use the web build.
 | Tap picking and the hover ring | prototype section 6 | issue M1 |
 | Surf clock | section 8 | ported |
 | Cloud decks: one shell, one material per deck; `Planet::set_camera_distance` opens the see-through hole | section 5 (`buildClouds`), the see-through half of `stepSky` | ported |
+| `Halo`, `placement` | `makeGlow`'s quad and its per-frame parking | ported |
 | Scene sync from `cl-session` events; star and cloud-drift clocks | sections 5, 8 | issues M1, M3 |
 
 ## Invariants
@@ -36,6 +37,9 @@ no desktop binary. Local runs use the web build.
 - The see-through hole tracks the camera's distance, not a clock, so it is set every frame beside
   the model rather than on the animation clocks. The camera stays on `+z`, so the opening always
   faces the viewer and only its width and depth change.
+- The halo belongs to the scene, not to the planet: the trackball never reaches it, so the world
+  spins underneath a halo that stays put. It is parked behind the planet and scaled by the ratio of
+  the camera's two distances, which keeps it the same multiple of the atmosphere at every zoom.
 
 ## Testing
 The camera and trackball are unit tested: the zoom range and its wheel and pinch ratios, the basis
