@@ -35,6 +35,7 @@ struct Draw {
 const FLAG_TEXTURED: u32 = 1u;
 const FLAG_VERTEX_COLOR: u32 = 2u;
 const FLAG_CLOUD_HOLE: u32 = 4u;
+const FLAG_SCREEN: u32 = 8u;
 
 @group(0) @binding(0) var<uniform> scene: Scene;
 @group(1) @binding(0) var<uniform> draw: Draw;
@@ -58,7 +59,10 @@ fn vs_main(
 ) -> VsOut {
     var out: VsOut;
     let world = draw.model * vec4<f32>(position, 1.0);
-    out.clip = scene.view_proj * world;
+    // The backdrop arrives in clip space already and belongs to no camera, which is what the
+    // prototype's own orthographic pass over the same buffer amounts to.
+    let screen = (draw.flags & FLAG_SCREEN) != 0u;
+    out.clip = select(scene.view_proj * world, world, screen);
     out.world = world.xyz;
     // Rotation and uniform scale only, so the inverse transpose is the matrix itself once the
     // fragment stage normalises.

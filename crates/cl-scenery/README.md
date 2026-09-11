@@ -19,7 +19,7 @@ territory outline and the space pass.
 | `poly`: `clip_half`, `clip_to_hull`, `trim_convex`, `dedupe`, `mitre_offset`, `parcel_split`, `poly_area`, `poly_thickness`, `hull_at` | the 2D convex polygon kit | ported |
 | `build_houses(&sphere, &frames, &snapshot, px, seed)` -> `Option<Houses>` (every house and wing in one mesh, plus zone, tile, house and wing counts) | `buildHouses` | ported |
 | `build_border`, `hover_ring` | `rebuildBorder`, `setRing` | issue M1 |
-| `build_space(w, h)` (vignette + stars), `step_stars` | `buildSpace`, `stepStars` | issue M1 |
+| `build_space(w, h)` -> `Space` (vignette, star quads, `Star` list), `step_stars(&mut colors, &list, t)` | `buildSpace`, `stepStars` | ported |
 | `pick(ray, …)` | raycast to tile via `faceTile` / `wallTile` | issue M1 |
 | `Shell` | radius plus mesh, for shells whose radius the app needs | ported |
 
@@ -51,17 +51,24 @@ territory outline and the space pass.
   the camera closes in. Its window (6.0 down to 5.0) sits almost at full zoom-out on purpose — the
   camera opens at 3.3, so the hole is already open on the first frame. A deck with the hole left
   shut reads as a solid blanket, which is what the prototype shows only at the top of the range.
+- The backdrop is the one builder in clip space rather than world space, and the one whose input is
+  the render target rather than the world: its stars are quads snapped to the render-pixel lattice,
+  so a new target size means a new star field. The prototype's plane is indexed and `MeshData` is
+  not, so the vignette's 15 × 15 grid is expanded into the same plain triangle list as everything
+  else; the fixture is compared through the plane's index.
 
 ## Testing
 `tests/fixtures.rs` compares each ported builder with `fixtures/scenery/*.json`: vertex counts,
 the exact `sha256` of the little-endian `f32` bytes, and the first 64 floats for readable diffs.
 Farmland, the wood and the villages also have their zone, parcel, fence, tile, crown, house and
-wing counts pinned, and their constants are checked against `fixtures/constants.json`. The polygon kit and the zone
-machinery carry unit tests on hand-made shapes, where the expected answer can be read off by hand.
-The cloud stack is pinned against `fixtures/scenery/clouds-n8.json` — shell radius, tile count, and
-per deck the scale to the bit, the draw order, the tint, `alphaTest`, the sides and the resting hole
-angles. `uFocus` is not compared: the harness's `Vector3` shim drops its arguments, so the fixture
-records `(0,0,0)` where the prototype passes `(0,0,1)`, and pinning it would pin the shim.
+wing counts pinned, and their constants are checked against `fixtures/constants.json`. The cloud
+stack is pinned against `fixtures/scenery/clouds-n8.json` — shell radius, tile count, and per deck
+the scale to the bit, the draw order, the tint, `alphaTest`, the sides and the resting hole angles.
+`uFocus` is not compared: the harness's `Vector3` shim drops its arguments, so the fixture records
+`(0,0,0)` where the prototype passes `(0,0,1)`, and pinning it would pin the shim. The backdrop is
+compared float for float at both fixture sizes — vignette, star quads, the whole `Star` list, and the
+star colours after two flicker steps. The polygon kit and the zone machinery carry unit tests on
+hand-made shapes, where the expected answer can be read off by hand.
 
 ## Non-goals
 GPU resources, materials and shaders (`cl-render`), gameplay.

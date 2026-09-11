@@ -31,7 +31,7 @@ topology — six for the whole prototype.
 
 | Stage | Formula |
 |---|---|
-| vertex | `clip = view_proj × model × position`; `uv = uv × repeat + offset`; the normal takes `model` unchanged, being rotation and uniform scale only |
+| vertex | `clip = view_proj × model × position`, or `model × position` alone under `FLAG_SCREEN`; `uv = uv × repeat + offset`; the normal takes `model` unchanged, being rotation and uniform scale only |
 | diffuse | `material colour × vertex colour × texel`, each optional through a flag |
 | hole | `alpha ×= mix(1, open, smoothstep(cos θ_out, cos θ_in, dot(normalize(world), focus)))` |
 | discard | `alpha < alphaTest` |
@@ -46,6 +46,11 @@ happens here — that is the blit's one job.
 |---|---|---|
 | `SceneUniform` (group 0) | 112 | `view_proj`, `ambient`, `sun_color`, `sun_dir` |
 | `DrawUniform` (group 1) | 144 | `model`, `color`, `uv_transform`, `params` (alphaTest, hole outer, hole inner, open), `focus`, `flags` |
+
+`flags` selects the optional stages: `FLAG_TEXTURED`, `FLAG_VERTEX_COLOR`, `FLAG_CLOUD_HOLE`, and
+`FLAG_SCREEN` for a mesh already in clip space. The last is how the backdrop is drawn: the prototype
+gives it an orthographic camera spanning exactly `-1..1`, which is the identity, and one scene
+uniform per frame leaves no room for a second camera.
 
 `DrawUniform` ends in three scalar pads rather than a `vec3<u32>`, which WGSL would align to 16 and
 stretch the block to 160 bytes. Group 1 also carries the map and its sampler; a material without a
@@ -63,8 +68,9 @@ map binds one white texel, so the layout never changes.
 ## Testing
 The target-size arithmetic, the uniform layouts, the light constants and the material presets are
 unit tested. `tests/headless.rs` renders one frame without a window and reads the texels back,
-checking them against the Lambert formula computed on the CPU; it needs an adapter, so it prints why
-and passes where there is none, and CI installs lavapipe to make it run.
+checking them against the Lambert formula computed on the CPU, and renders a `FLAG_SCREEN` draw
+under a camera that collapses everything to a point to prove the flag goes round it. Those need an
+adapter, so they print why and pass where there is none, and CI installs lavapipe to make them run.
 
 ## Non-goals
 Scene content (`cl-scenery`), UI drawing (`cl-ui`), windowing and input (`cl-app`).

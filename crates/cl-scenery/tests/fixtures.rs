@@ -10,15 +10,16 @@ use cl_model::{Cover, Terrain, TileId, TileState, WorldSnapshot};
 use cl_noise::js::cos;
 use cl_pixelart::{CLOUD_DECKS, CLOUD_TEX_W, DITHER_FLOOR, build_terrain_atlas, make_cloud_sky};
 use cl_scenery::{
-    BUSH_CHANCE, BUSH_MARGIN_PX, CANOPY_BODY, CANOPY_ZONE_F, CANOPY_ZONES, CHIM_ODDS, CHIM_PX,
-    CHIM_RISE_MAX, CHIM_RISE_MIN, CROWN_JIT, CROWN_PX, CROWN_STEP, DOOR_H, DOOR_W, FLOOR_GROW,
-    FLOOR_LIFT_PX, FLOOR_R_MIN, FLOOR_SHADE, FOREST_SPAN, HOLE_REST_IN, HOLE_REST_OPEN,
-    HOLE_REST_OUT, HOUSE_LEN_MAX, HOUSE_LEN_MIN, HOUSE_ODDS, HOUSE_OPEN, HOUSE_ROOF, HOUSE_ROT_JIT,
-    HOUSE_SINK, HOUSE_SPAN, HOUSE_SPAN_MAX, HOUSE_SPAN_MIN, HOUSE_TURNS, HOUSE_WALLS, L_CHANCE,
-    PLOT_JIT, PLOT_PX, RIDGE_CAP_PX, ROOF_LIP, ROOF_OVER, STRIPE_ODDS, STRIPE_PX, TREE_H_PX,
-    TREE_MAX, TREE_MIN, TREE_SINK_PX, VERGE_ODDS, VERGE_PX, VIGOUR_F, WALL_MAX, WALL_MIN, WIN_PX,
-    build_atmosphere, build_cloud_shell, build_clouds, build_fields, build_forest, build_houses,
-    build_terrain,
+    ARM_DIM, BUSH_CHANCE, BUSH_MARGIN_PX, CANOPY_BODY, CANOPY_ZONE_F, CANOPY_ZONES, CHIM_ODDS,
+    CHIM_PX, CHIM_RISE_MAX, CHIM_RISE_MIN, CROWN_JIT, CROWN_PX, CROWN_STEP, DOOR_H, DOOR_W,
+    FLICKER_LEVELS, FLICKER_MS, FLICKER_SHARE, FLOOR_GROW, FLOOR_LIFT_PX, FLOOR_R_MIN, FLOOR_SHADE,
+    FOREST_SPAN, HOLE_REST_IN, HOLE_REST_OPEN, HOLE_REST_OUT, HOUSE_LEN_MAX, HOUSE_LEN_MIN,
+    HOUSE_ODDS, HOUSE_OPEN, HOUSE_ROOF, HOUSE_ROT_JIT, HOUSE_SINK, HOUSE_SPAN, HOUSE_SPAN_MAX,
+    HOUSE_SPAN_MIN, HOUSE_TURNS, HOUSE_WALLS, L_CHANCE, PLOT_JIT, PLOT_PX, PLUS_SHARE,
+    RIDGE_CAP_PX, ROOF_LIP, ROOF_OVER, SKY_CORE, SKY_RIM, STAR_DENSITY, STAR_INSET, STAR_TONES,
+    STRIPE_ODDS, STRIPE_PX, TREE_H_PX, TREE_MAX, TREE_MIN, TREE_SINK_PX, VERGE_ODDS, VERGE_PX,
+    VIGOUR_F, WALL_MAX, WALL_MIN, WIN_PX, build_atmosphere, build_cloud_shell, build_clouds,
+    build_fields, build_forest, build_houses, build_space, build_terrain, step_stars,
 };
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -625,6 +626,138 @@ fn house_constants_match_prototype() {
         ("HOUSE_ODDS", HOUSE_ODDS),
         ("HOUSE_SPAN", HOUSE_SPAN),
         ("HOUSE_ROT_JIT", HOUSE_ROT_JIT),
+    ] {
+        assert_eq!(c[name].as_f64().unwrap(), value, "{name}");
+    }
+}
+
+/// The raw `f32` array a full fixture dump carries, read back exactly.
+fn floats(v: &Value) -> Vec<f32> {
+    v.as_array()
+        .unwrap()
+        .iter()
+        .map(|x| x.as_f64().unwrap() as f32)
+        .collect()
+}
+
+#[test]
+fn the_space_pass_matches_prototype_sizes() {
+    for (w, h) in [(320u32, 180u32), (300, 200)] {
+        let tag = format!("{w}x{h}");
+        let f = fixture(&format!("space-{tag}.json"));
+        let space = build_space(w, h);
+        assert!(space.vignette.validate().is_ok(), "{tag} vignette");
+        assert!(space.stars.validate().is_ok(), "{tag} stars");
+
+        // The prototype's vignette is an indexed plane and `MeshData` is a plain triangle list, so
+        // the fixture's index is what the two are compared through.
+        let grid = floats(&f["vignette"]["position"]);
+        let tint = floats(&f["vignette"]["color"]);
+        let index: Vec<usize> = f["vignette"]["index"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x.as_u64().unwrap() as usize)
+            .collect();
+        let expand = |src: &[f32]| -> Vec<f32> {
+            index
+                .iter()
+                .flat_map(|&v| src[v * 3..v * 3 + 3].to_vec())
+                .collect()
+        };
+        assert_eq!(
+            space.vignette.positions,
+            expand(&grid),
+            "{tag} vignette xyz"
+        );
+        assert_eq!(space.vignette.colors, expand(&tint), "{tag} vignette rgb");
+
+        assert_eq!(
+            space.stars.positions,
+            floats(&f["stars"]["position"]),
+            "{tag} star xyz"
+        );
+        assert_eq!(
+            space.stars.colors,
+            floats(&f["stars"]["color"]),
+            "{tag} star rgb"
+        );
+
+        let want = f["stars"]["list"].as_array().unwrap();
+        assert_eq!(space.list.len(), want.len(), "{tag} star count");
+        for (i, (got, want)) in space.list.iter().zip(want).enumerate() {
+            let tone: Vec<u8> = want["tone"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|x| x.as_u64().unwrap() as u8)
+                .collect();
+            assert_eq!(
+                (
+                    got.start as u64,
+                    got.count as u64,
+                    got.cells as u64,
+                    got.tone.to_vec(),
+                    got.plus,
+                    got.flick,
+                    got.phase,
+                    got.rate,
+                ),
+                (
+                    want["start"].as_u64().unwrap(),
+                    want["count"].as_u64().unwrap(),
+                    want["cells"].as_u64().unwrap(),
+                    tone,
+                    want["plus"].as_bool().unwrap(),
+                    want["flick"].as_bool().unwrap(),
+                    want["phase"].as_f64().unwrap(),
+                    want["rate"].as_f64().unwrap(),
+                ),
+                "{tag} star {i}"
+            );
+        }
+
+        // The harness steps the same colour array twice, so a steady star still carries the colour
+        // it was built with in both.
+        let mut colors = space.stars.colors.clone();
+        for at in ["colorAt1234", "colorAt5678"] {
+            let t = at.trim_start_matches("colorAt").parse::<f64>().unwrap();
+            step_stars(&mut colors, &space.list, t);
+            assert_eq!(colors, floats(&f["stars"][at]), "{tag} {at}");
+        }
+    }
+}
+
+#[test]
+fn space_constants_match_prototype() {
+    let path: PathBuf = [env!("CARGO_MANIFEST_DIR"), "..", "..", "fixtures"]
+        .iter()
+        .collect();
+    let c: Value =
+        serde_json::from_str(&fs::read_to_string(path.join("constants.json")).unwrap()).unwrap();
+    assert_eq!(c["SKY_CORE"], SKY_CORE);
+    assert_eq!(c["SKY_RIM"], SKY_RIM);
+    let tones: Vec<String> = c["STAR_TONES"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s.as_str().unwrap().to_owned())
+        .collect();
+    assert_eq!(tones, STAR_TONES);
+    let levels: Vec<f64> = c["FLICKER_LEVELS"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_f64().unwrap())
+        .collect();
+    assert_eq!(levels, FLICKER_LEVELS, "FLICKER_LEVELS");
+    for (name, value) in [
+        ("STAR_DENSITY", STAR_DENSITY),
+        ("PLUS_SHARE", PLUS_SHARE),
+        ("ARM_DIM", ARM_DIM),
+        ("STAR_INSET", STAR_INSET),
+        ("FLICKER_SHARE", FLICKER_SHARE),
+        ("FLICKER_MS", FLICKER_MS),
     ] {
         assert_eq!(c[name].as_f64().unwrap(), value, "{name}");
     }
