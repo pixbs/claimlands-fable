@@ -12,10 +12,10 @@ use cl_pixelart::palette::{
 };
 use cl_pixelart::{
     Atlas, BAYER4, CLOUD_DECKS, CLOUD_F0, CLOUD_OCT, CLOUD_TEX_W, COAST_DARKEN, COAST_TIGHT,
-    DITHER_FLOOR, DITHER_RANKS, Filter, GRASS_DITHER, GRASS_F0, GRASS_OCT, MUD_DITHER, MUD_EDGE,
-    MUD_F0, MUD_OCT, MUD_SALT, MUD_SCATTER, SEA_F0, SEA_FADE, SEA_OCT, SEA_SHALLOW, SPECKLE, Wrap,
-    build_terrain_atlas, make_cliff_texture, make_cloud_sky, make_field_texture, make_foam_texture,
-    sky_seed,
+    DITHER_FLOOR, DITHER_RANKS, Filter, GLOW_BACK, GLOW_MAX, GLOW_OUT, GRASS_DITHER, GRASS_F0,
+    GRASS_OCT, MUD_DITHER, MUD_EDGE, MUD_F0, MUD_OCT, MUD_SALT, MUD_SCATTER, SEA_F0, SEA_FADE,
+    SEA_OCT, SEA_SHALLOW, SPECKLE, Wrap, build_terrain_atlas, make_cliff_texture, make_cloud_sky,
+    make_field_texture, make_foam_texture, make_glow, sky_seed,
 };
 use serde_json::Value;
 
@@ -171,6 +171,50 @@ fn cloud_constants_match_prototype() {
     for (deck, want) in CLOUD_DECKS.iter().zip(c["CLOUD_DECKS"].as_array().unwrap()) {
         assert_eq!(want["tone"], deck.tone);
         assert_eq!(want["cover"].as_f64().unwrap(), deck.cover);
+    }
+}
+
+#[test]
+fn halo_matches_prototype_exactly() {
+    let tex = make_glow();
+    let diff = differing_texels(&tex.image, &png("pixelart/glow.png"));
+    assert!(
+        diff.is_empty(),
+        "{} halo texels differ, first {:?}",
+        diff.len(),
+        &diff[..diff.len().min(10)]
+    );
+    let meta = json("pixelart/glow.json");
+    // A glow, not pixel art: linear on both axes, where every other texture is nearest.
+    assert_eq!(meta["texture"]["magFilter"], "LinearFilter");
+    assert_eq!(meta["texture"]["minFilter"], "LinearFilter");
+    assert_eq!(tex.filter, Filter::Linear);
+    // The prototype leaves the wrap unset on this one, so the fixture records null and three.js'
+    // clamped default applies. The quad's UVs never leave 0..1, so the choice is not observable.
+    assert!(meta["texture"]["wrapS"].is_null());
+    assert!(meta["texture"]["wrapT"].is_null());
+    assert_eq!(tex.wrap_s, Wrap::Clamp);
+    assert_eq!(tex.wrap_t, Wrap::Clamp);
+
+    assert_eq!(meta["material"]["transparent"], true);
+    assert_eq!(meta["material"]["depthWrite"], false);
+    assert_eq!(meta["material"]["side"], "DoubleSide");
+    assert_eq!(
+        meta["renderOrder"].as_i64().unwrap(),
+        -1,
+        "behind everything"
+    );
+}
+
+#[test]
+fn glow_constants_match_prototype() {
+    let c = json("constants.json");
+    for (name, got) in [
+        ("GLOW_OUT", GLOW_OUT),
+        ("GLOW_BACK", GLOW_BACK),
+        ("GLOW_MAX", GLOW_MAX),
+    ] {
+        assert_eq!(c[name].as_f64().unwrap(), got, "{name}");
     }
 }
 

@@ -3,12 +3,14 @@
 
 mod app;
 pub mod camera;
+pub mod glow;
 pub mod planet;
 pub mod platform;
 mod time;
 
 pub use app::App;
 pub use camera::{Camera, Trackball};
+pub use glow::{Halo, Placement, placement};
 pub use planet::Planet;
 
 /// Build identifier shown in the readout.

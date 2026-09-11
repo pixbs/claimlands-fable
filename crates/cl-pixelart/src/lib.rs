@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 
 mod atlas;
+mod glow;
 pub mod palette;
 mod sky;
 mod strips;
@@ -13,6 +14,7 @@ pub use atlas::{
     SEA_FADE, SEA_OCT, SEA_SHALLOW, SPECKLE, build_terrain_atlas,
 };
 pub use cl_model::{Filter, Texture, Wrap};
+pub use glow::{GLOW_BACK, GLOW_FALLOFF, GLOW_MAX, GLOW_OUT, GLOW_PX, make_glow};
 pub use sky::{
     BAYER4, CLOUD_DECKS, CLOUD_F0, CLOUD_OCT, CLOUD_TEX_W, CloudDeck, DITHER_FLOOR, DITHER_RANKS,
     Sky, make_cloud_sky, sky_seed,

@@ -58,6 +58,7 @@ pub struct App {
     attributes: WindowAttributes,
     renderer: Option<Renderer>,
     planet: Option<Planet>,
+    halo: Option<crate::glow::Halo>,
     camera: Camera,
     trackball: Trackball,
     input: Input,
@@ -125,6 +126,7 @@ impl App {
             attributes,
             renderer: None,
             planet: None,
+            halo: None,
             camera: Camera::default(),
             trackball: Trackball::default(),
             input: Input::default(),
@@ -212,13 +214,21 @@ impl App {
             return;
         }
         let mut renderer = Renderer::new(&gpu.device, &gpu.queue, gpu.target_format());
-        self.planet = Some(Planet::new(
+        let planet = Planet::new(
             &mut renderer,
             &gpu.device,
             &gpu.queue,
             self.sphere.clone(),
             self.world.clone(),
+        );
+        // The halo is sized against the atmosphere, so it is built once the shell's radius is known.
+        self.halo = Some(crate::glow::Halo::new(
+            &mut renderer,
+            &gpu.device,
+            &gpu.queue,
+            planet.air_radius,
         ));
+        self.planet = Some(planet);
         self.renderer = Some(renderer);
     }
     fn redraw(&mut self) {
@@ -251,14 +261,25 @@ impl App {
             planet.set_model(&gpu.queue, self.trackball.model());
             planet.set_camera_distance(&gpu.queue, self.camera.distance());
         }
+        if let Some(halo) = &mut self.halo {
+            // No model matrix from the trackball: the halo belongs to the scene, not the planet.
+            halo.set_camera_distance(&gpu.queue, self.camera.distance());
+        }
 
         let Some(mut frame) = gpu.frame() else { return };
         {
             // The planet pass clears colour and depth. The space pass that will precede it is its
             // own issue; until then the clear stands in for it.
             let mut pass = frame.scene_pass(Some(CLEAR), true);
-            if let (Some(renderer), Some(planet)) = (&self.renderer, &self.planet) {
-                planet.draw(renderer, &mut pass);
+            if let Some(renderer) = &self.renderer {
+                // renderOrder -1: the backdrop goes down first and writes no depth, so nothing it
+                // covers is ever occluded by it.
+                if let Some(halo) = &self.halo {
+                    halo.draw(renderer, &mut pass);
+                }
+                if let Some(planet) = &self.planet {
+                    planet.draw(renderer, &mut pass);
+                }
             }
         }
         frame.blit();

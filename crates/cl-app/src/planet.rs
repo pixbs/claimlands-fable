@@ -86,6 +86,8 @@ pub struct Planet {
     pub snapshot: WorldSnapshot,
     /// Per-tile frames.
     pub frames: Frames,
+    /// Radius of the atmosphere shell. The halo is sized and parked against it.
+    pub air_radius: f64,
     /// The ground atlas.
     pub atlas: Atlas,
     /// The surface meshes.
@@ -290,6 +292,7 @@ impl Planet {
             sphere,
             snapshot,
             frames,
+            air_radius: shell.radius,
             atlas,
             terrain,
             fields,
