@@ -10,7 +10,7 @@ constant of the prototype) and in the crate that ports them; tests compare the t
 |---|---|---|
 | Render size | `round(w / pixelScale)` × `round(h / pixelScale)` CSS pixels, `setPixelRatio(1)`, `antialias: false`, canvas upscaled with `image-rendering: pixelated` | `cl-render`: `Rgba8Unorm` target of that size, blitted to the swapchain with nearest sampling |
 | Colour space | `LinearEncoding`, no tone mapping: hex values reach the screen unchanged | blit converts sRGB→linear once when the swapchain is sRGB so the hardware encode restores raw values |
-| Pass 1 | orthographic space pass: vignette plane (15×15 vertex colours) and pixel-snapped star quads, depth off | `cl-scenery::build_space` (M1), unlit pipeline |
+| Pass 1 | orthographic space pass: vignette plane (15×15 vertex colours) and pixel-snapped star quads, depth off | `cl-scenery::build_space`, drawn unlit in clip space through `FLAG_SCREEN` |
 | Depth clear | `renderer.clearDepth()` between passes | separate render pass |
 | Pass 2 | perspective camera fov 38°, near 0.1, far 50, on +z at distance 1.35–6 (start 3.3), planet rotates | `cl-app` camera, `cl-render` pipelines |
 | Lights | ambient `#b9c6ff` × 0.66; directional `#fff2d8` × 0.52 from `normalize(1.1, 0.9, 1.4)` in world space | Lambert material uniforms |
@@ -20,6 +20,7 @@ constant of the prototype) and in the crate that ports them; tests compare the t
 
 | Mesh | Material | Details |
 |---|---|---|
+| vignette and stars | unlit, vertex colours, clip space, depth off | one material for both; each star quad is inset 0.22 inside its own render pixel |
 | ground | Lambert, atlas map, vertex colours | nearest, no mipmaps; owner tint ×(1.30, 1.00, 0.52) |
 | cliff walls | Lambert, cliff strip repeating | `RepeatWrapping` both axes |
 | surf | Lambert, foam sheet, `alphaTest 0.5`, double-sided, render order 1 | 8 frames, offset stepped every 140 ms |

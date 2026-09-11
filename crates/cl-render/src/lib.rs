@@ -9,7 +9,7 @@ use wgpu::util::DeviceExt;
 
 pub use scene::{
     AMBIENT_COLOR, AMBIENT_INTENSITY, Blend, Cull, DEPTH_FORMAT, Depth, DrawUniform,
-    FLAG_CLOUD_HOLE, FLAG_TEXTURED, FLAG_VERTEX_COLOR, GpuTexture, IDENTITY, Material,
+    FLAG_CLOUD_HOLE, FLAG_SCREEN, FLAG_TEXTURED, FLAG_VERTEX_COLOR, GpuTexture, IDENTITY, Material,
     MaterialDesc, Mesh, Renderer, SUN_COLOR, SUN_INTENSITY, SUN_POSITION, SceneUniform, Shading,
     Topology, Vertex, light, vertices,
 };

@@ -15,9 +15,10 @@ use winit::window::{Window, WindowAttributes, WindowId};
 
 use crate::camera::{Camera, Trackball, spread};
 use crate::planet::Planet;
+use crate::space::Backdrop;
 use crate::time::now_ms;
 
-/// The prototype's clear colour behind the space pass (`SKY_RIM`), as raw 0–1 values.
+/// The prototype's clear colour behind the space pass ([`cl_scenery::SKY_RIM`]), as raw 0–1 values.
 const CLEAR: [f64; 3] = [3.0 / 255.0, 2.0 / 255.0, 9.0 / 255.0];
 /// Pointer id of the mouse; touches carry their own.
 const MOUSE: u64 = u64::MAX;
@@ -58,6 +59,7 @@ pub struct App {
     attributes: WindowAttributes,
     renderer: Option<Renderer>,
     planet: Option<Planet>,
+    backdrop: Option<Backdrop>,
     camera: Camera,
     trackball: Trackball,
     input: Input,
@@ -125,6 +127,7 @@ impl App {
             attributes,
             renderer: None,
             planet: None,
+            backdrop: None,
             camera: Camera::default(),
             trackball: Trackball::default(),
             input: Input::default(),
@@ -219,6 +222,8 @@ impl App {
             self.sphere.clone(),
             self.world.clone(),
         ));
+        let (w, h) = gpu.target_extent();
+        self.backdrop = Some(Backdrop::new(&mut renderer, &gpu.device, w, h));
         self.renderer = Some(renderer);
     }
     fn redraw(&mut self) {
@@ -251,12 +256,23 @@ impl App {
             planet.set_model(&gpu.queue, self.trackball.model());
             planet.set_camera_distance(&gpu.queue, self.camera.distance());
         }
+        if let (Some(renderer), Some(backdrop)) = (&self.renderer, &mut self.backdrop) {
+            backdrop.resize(renderer, &gpu.device, tw, th);
+        }
 
         let Some(mut frame) = gpu.frame() else { return };
         {
-            // The planet pass clears colour and depth. The space pass that will precede it is its
-            // own issue; until then the clear stands in for it.
-            let mut pass = frame.scene_pass(Some(CLEAR), true);
+            // The backdrop clears the colour and writes no depth, exactly as the prototype's
+            // `renderer.clear()` and its space pass do. The clear is what shows through where the
+            // vignette's own triangles have not covered a texel yet.
+            let mut pass = frame.scene_pass(Some(CLEAR), false);
+            if let (Some(renderer), Some(backdrop)) = (&self.renderer, &self.backdrop) {
+                backdrop.draw(renderer, &mut pass);
+            }
+        }
+        {
+            // Then the depth clear, so the planet is never occluded by what is behind it.
+            let mut pass = frame.scene_pass(None, true);
             if let (Some(renderer), Some(planet)) = (&self.renderer, &self.planet) {
                 planet.draw(renderer, &mut pass);
             }
@@ -446,5 +462,11 @@ mod tests {
         // A window that still reports nothing keeps what it was created at rather than collapsing.
         assert_eq!(startup_size((1280, 720), (0, 0)), (1280, 720));
         assert_eq!(startup_size((1280, 720), (1000, 0)), (1280, 720));
+    }
+
+    #[test]
+    fn the_clear_is_the_rim_of_the_sky() {
+        let rim = cl_model::hex_rgb(cl_scenery::SKY_RIM);
+        assert_eq!(CLEAR, rim.map(|c| f64::from(c) / 255.0));
     }
 }

@@ -1,8 +1,8 @@
 //! The planet on the GPU: the ported builders assembled once, then drawn every frame.
 //!
-//! What is here is what has been ported. The halo and the space pass are their own issues and join
-//! this list as they land; each is one more mesh and one more material, not a change to how the
-//! scene is put together.
+//! What is here is what has been ported. The halo is its own issue and joins this list as it lands;
+//! it is one more mesh and one more material, not a change to how the scene is put together. The
+//! backdrop behind all of it is [`crate::space::Backdrop`], drawn in the pass before this one.
 
 use cl_hexsphere::{Frames, HexSphere, compute_tile_frames};
 use cl_model::{Texture, WorldSnapshot, hex_rgb};

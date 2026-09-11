@@ -267,6 +267,10 @@ pub const FLAG_TEXTURED: u32 = 1;
 pub const FLAG_VERTEX_COLOR: u32 = 2;
 /// The material opens the see-through hole toward [`DrawUniform::focus`].
 pub const FLAG_CLOUD_HOLE: u32 = 4;
+/// The mesh is already in clip space, so the vertex stage skips the camera entirely. The backdrop
+/// of [`MaterialDesc::space`] is built that way: the prototype draws it through an orthographic
+/// camera spanning exactly `-1..1`, which is the identity.
+pub const FLAG_SCREEN: u32 = 8;
 
 impl Default for DrawUniform {
     fn default() -> Self {
