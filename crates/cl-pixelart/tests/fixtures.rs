@@ -11,9 +11,11 @@ use cl_pixelart::palette::{
     AIR_COLOR, CLIFF_ROWS, FIELD_CROPS, FOAM_ROWS, GRASS_BANDS, MUD_BANDS, SEA_BANDS,
 };
 use cl_pixelart::{
-    Atlas, COAST_DARKEN, COAST_TIGHT, GRASS_DITHER, GRASS_F0, GRASS_OCT, MUD_DITHER, MUD_EDGE,
+    Atlas, BAYER4, CLOUD_DECKS, CLOUD_F0, CLOUD_OCT, CLOUD_TEX_W, COAST_DARKEN, COAST_TIGHT,
+    DITHER_FLOOR, DITHER_RANKS, Filter, GRASS_DITHER, GRASS_F0, GRASS_OCT, MUD_DITHER, MUD_EDGE,
     MUD_F0, MUD_OCT, MUD_SALT, MUD_SCATTER, SEA_F0, SEA_FADE, SEA_OCT, SEA_SHALLOW, SPECKLE, Wrap,
-    build_terrain_atlas, make_cliff_texture, make_field_texture, make_foam_texture,
+    build_terrain_atlas, make_cliff_texture, make_cloud_sky, make_field_texture, make_foam_texture,
+    sky_seed,
 };
 use serde_json::Value;
 
@@ -90,6 +92,86 @@ fn field_strip_matches_prototype_exactly() {
     let meta = json("pixelart/field.json");
     assert_eq!(tex.wrap_s, wrap_of(&meta["wrapS"]));
     assert_eq!(tex.wrap_t, wrap_of(&meta["wrapT"]));
+}
+
+/// Seed the harness builds the sky with: `(63352 % 9973) + 7`.
+const SKY_SEED: f64 = 3521.0;
+
+#[test]
+fn cloud_sky_matches_prototype_exactly() {
+    let sky = make_cloud_sky(SKY_SEED);
+    let meta = json("pixelart/sky-s3521.json");
+    assert_eq!(meta["seed"].as_f64().unwrap(), SKY_SEED);
+    // The harness seeds the sky the way the prototype's call site does, from the n=8 world's seed.
+    // Pinning the derivation here is what stops the app feeding the raw world seed to the sky.
+    let world_seed = json("worldgen/n8-s63352.json")["seed"].as_u64().unwrap() as u32;
+    assert_eq!(
+        sky_seed(world_seed),
+        SKY_SEED,
+        "sky seed derived from {world_seed}"
+    );
+    assert_eq!(u64::from(sky.width), meta["W"].as_u64().unwrap(), "width");
+    assert_eq!(u64::from(sky.height), meta["H"].as_u64().unwrap(), "height");
+    for (k, deck) in sky.decks.iter().enumerate() {
+        let want = &meta["decks"][k];
+        assert_eq!(deck.wrap_s, wrap_of(&want["wrapS"]), "deck {k} wrapS");
+        assert_eq!(deck.wrap_t, wrap_of(&want["wrapT"]), "deck {k} wrapT");
+        assert_eq!(deck.filter, Filter::Nearest, "deck {k} filter");
+        assert_eq!(want["magFilter"], "NearestFilter", "deck {k}");
+        assert_eq!(want["minFilter"], "NearestFilter", "deck {k}");
+        assert_eq!(want["generateMipmaps"], false, "deck {k}");
+        assert_eq!(deck.repeat[0], want["repeat"]["x"].as_f64().unwrap());
+        assert_eq!(deck.repeat[1], want["repeat"]["y"].as_f64().unwrap());
+        assert_eq!(
+            want["offset"]["x"].as_f64().unwrap(),
+            0.0,
+            "deck {k} offset"
+        );
+        assert_eq!(
+            want["offset"]["y"].as_f64().unwrap(),
+            0.0,
+            "deck {k} offset"
+        );
+
+        let diff = differing_texels(
+            &deck.image,
+            &png(&format!("pixelart/sky-s3521-deck{k}.png")),
+        );
+        assert!(
+            diff.is_empty(),
+            "deck {k}: {} sky texels differ, first {:?}",
+            diff.len(),
+            &diff[..diff.len().min(10)]
+        );
+    }
+}
+
+#[test]
+fn cloud_constants_match_prototype() {
+    let c = json("constants.json");
+    for (name, got, want) in [
+        ("CLOUD_TEX_W", f64::from(CLOUD_TEX_W), &c["CLOUD_TEX_W"]),
+        ("CLOUD_OCT", f64::from(CLOUD_OCT), &c["CLOUD_OCT"]),
+        ("CLOUD_F0", CLOUD_F0, &c["CLOUD_F0"]),
+        ("DITHER_RANKS", f64::from(DITHER_RANKS), &c["DITHER_RANKS"]),
+        ("DITHER_FLOOR", DITHER_FLOOR, &c["DITHER_FLOOR"]),
+    ] {
+        assert_eq!(want.as_f64().unwrap(), got, "{name}");
+    }
+    let bayer: Vec<u64> = c["BAYER4"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_u64().unwrap())
+        .collect();
+    assert_eq!(
+        bayer,
+        BAYER4.iter().map(|&b| u64::from(b)).collect::<Vec<_>>()
+    );
+    for (deck, want) in CLOUD_DECKS.iter().zip(c["CLOUD_DECKS"].as_array().unwrap()) {
+        assert_eq!(want["tone"], deck.tone);
+        assert_eq!(want["cover"].as_f64().unwrap(), deck.cover);
+    }
 }
 
 #[test]

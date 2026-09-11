@@ -11,6 +11,7 @@ territory outline and the space pass.
 |---|---|---|
 | `build_atmosphere(&sphere, px)` | `buildAtmosphere` | ported |
 | `build_cloud_shell(&sphere, &frames, px)` | `buildCloudShell` | ported |
+| `build_clouds(&sphere, &frames, px)` -> `Clouds` (the shared shell plus a `Deck` per cloud layer: scale, tone, draw order), `hole_rest()`, `hole_at(camera_distance)` | `buildClouds`, the see-through half of `stepSky` | ported |
 | `build_terrain(&sphere, &frames, &snapshot, &atlas)` -> `Terrain` (fans, cliff wedges, surf, edge ribbons, `face_tile`, `wall_tile`, `vertex_start`/`vertex_count`) | `buildMesh` | ported |
 | `build_fields(&sphere, &frames, &snapshot, px)` -> `Option<Fields>` (surface, posts, zone/parcel/fence counts) | `buildFields` | ported |
 | `build_forest(&sphere, &frames, &snapshot, px, seed)` -> `Option<Forest>` (crowns and understory discs in one mesh, plus zone, tile and crown counts) | `buildForest` | ported |
@@ -40,6 +41,16 @@ territory outline and the space pass.
   wherever its plot centre lands and keeps its full footprint.
 - A village takes its wall tone per zone and its plot grid from the zone frame, so a settlement
   spanning several tiles is one street layout in one material rather than a tile's worth each.
+- The cloud decks share one shell and differ only by a uniform scale, so they stay exactly
+  concentric however the shell is built and the GPU holds the geometry once. Deck `k` stands
+  `k * CLOUD_LIFT_PX` above the first.
+- The see-through hole rests shut (`HOLE_REST_OPEN` is 1), so a deck costs its fragment nothing
+  until something opens the cap. Its cosines go through `cl_noise::js::cos`, not `libm`, because
+  the prototype's values come from V8's `Math.cos`.
+- `hole_at` tracks the camera's distance, not a clock: the opening widens and deepens together as
+  the camera closes in. Its window (6.0 down to 5.0) sits almost at full zoom-out on purpose — the
+  camera opens at 3.3, so the hole is already open on the first frame. A deck with the hole left
+  shut reads as a solid blanket, which is what the prototype shows only at the top of the range.
 
 ## Testing
 `tests/fixtures.rs` compares each ported builder with `fixtures/scenery/*.json`: vertex counts,
@@ -47,6 +58,10 @@ the exact `sha256` of the little-endian `f32` bytes, and the first 64 floats for
 Farmland, the wood and the villages also have their zone, parcel, fence, tile, crown, house and
 wing counts pinned, and their constants are checked against `fixtures/constants.json`. The polygon kit and the zone
 machinery carry unit tests on hand-made shapes, where the expected answer can be read off by hand.
+The cloud stack is pinned against `fixtures/scenery/clouds-n8.json` — shell radius, tile count, and
+per deck the scale to the bit, the draw order, the tint, `alphaTest`, the sides and the resting hole
+angles. `uFocus` is not compared: the harness's `Vector3` shim drops its arguments, so the fixture
+records `(0,0,0)` where the prototype passes `(0,0,1)`, and pinning it would pin the shim.
 
 ## Non-goals
 GPU resources, materials and shaders (`cl-render`), gameplay.

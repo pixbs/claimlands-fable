@@ -1,22 +1,22 @@
 //! The planet on the GPU: the ported builders assembled once, then drawn every frame.
 //!
-//! What is here is what has been ported. The cover meshes (fields, forest, villages), the clouds,
-//! the halo and the space pass are their own issues and join this list as they land; each is one
-//! more mesh and one more material, not a change to how the scene is put together.
+//! What is here is what has been ported. The halo and the space pass are their own issues and join
+//! this list as they land; each is one more mesh and one more material, not a change to how the
+//! scene is put together.
 
 use cl_hexsphere::{Frames, HexSphere, compute_tile_frames};
 use cl_model::{Texture, WorldSnapshot, hex_rgb};
 use cl_pixelart::{
-    Atlas, FOAM_FRAMES, build_terrain_atlas, make_cliff_texture, make_field_texture,
-    make_foam_texture, palette,
+    Atlas, DITHER_FLOOR, FOAM_FRAMES, build_terrain_atlas, make_cliff_texture, make_cloud_sky,
+    make_field_texture, make_foam_texture, palette, sky_seed,
 };
 use cl_render::{
-    DrawUniform, FLAG_TEXTURED, FLAG_VERTEX_COLOR, GpuTexture, Material, MaterialDesc, Mesh,
-    Renderer,
+    DrawUniform, FLAG_CLOUD_HOLE, FLAG_TEXTURED, FLAG_VERTEX_COLOR, GpuTexture, Material,
+    MaterialDesc, Mesh, Renderer,
 };
 use cl_scenery::{
-    Fields, Forest, Houses, Terrain, build_atmosphere, build_fields, build_forest, build_houses,
-    build_terrain,
+    Fields, Forest, Houses, Terrain, build_atmosphere, build_clouds, build_fields, build_forest,
+    build_houses, build_terrain, hole_at, hole_rest,
 };
 
 /// The surf steps one frame every this many milliseconds.
@@ -52,6 +52,32 @@ impl Part {
     }
 }
 
+/// One cloud deck drawn from the shared shell: its own tint, map and scale, but not its own
+/// geometry. Like [`Part`], but without a mesh of its own.
+struct CloudPart {
+    material: Material,
+    uniform: DrawUniform,
+    scale: f32,
+}
+
+/// The cloud stack. The three decks share one uploaded shell and differ only in the uniform and
+/// the map, exactly as the prototype's three meshes share one geometry — so the decks stay
+/// concentric and the GPU holds the shell once instead of three times.
+struct CloudStack {
+    mesh: Mesh,
+    decks: Vec<CloudPart>,
+}
+
+/// `model` scaled about the origin. The model matrix is column-major, so a uniform scale multiplies
+/// the first three columns and leaves the translation column alone.
+fn scaled(model: [f32; 16], s: f32) -> [f32; 16] {
+    let mut m = model;
+    for v in &mut m[..12] {
+        *v *= s;
+    }
+    m
+}
+
 /// The world, its meshes, and the GPU resources they are drawn from.
 pub struct Planet {
     /// The tiling.
@@ -74,6 +100,7 @@ pub struct Planet {
     walls: Part,
     foam: Part,
     air: Part,
+    clouds: CloudStack,
     /// Field tops and sides, the fence posts, the crowns, then the villages — the prototype's
     /// cover order. Empty where the world grew no cover at all.
     cover: Vec<Part>,
@@ -114,6 +141,7 @@ impl Planet {
         let atlas = build_terrain_atlas(&sphere, &frames, &snapshot, seed);
         let terrain = build_terrain(&sphere, &frames, &snapshot, &atlas);
         let shell = build_atmosphere(&sphere, frames.px);
+        let sky = build_clouds(&sphere, &frames, frames.px);
         let fields = build_fields(&sphere, &frames, &snapshot, frames.px);
         let forest = build_forest(&sphere, &frames, &snapshot, frames.px, seed);
         let houses = build_houses(&sphere, &frames, &snapshot, frames.px, seed);
@@ -123,6 +151,13 @@ impl Planet {
         let cliff_map = upload(&make_cliff_texture());
         let foam_map = upload(&make_foam_texture());
         let field_map = upload(&make_field_texture());
+        // The sky runs on its own stream: the prototype folds the world seed at the call site so
+        // the weather does not correlate with the terrain grown from the same number.
+        let sky_maps: Vec<GpuTexture> = make_cloud_sky(sky_seed(snapshot.seed))
+            .decks
+            .iter()
+            .map(upload)
+            .collect();
 
         let textured = DrawUniform {
             flags: FLAG_TEXTURED | FLAG_VERTEX_COLOR,
@@ -168,6 +203,34 @@ impl Planet {
             },
             None,
         );
+
+        // The sky: one shell on the GPU, one deck per map. `alphaTest` at the dither floor keeps
+        // the pixel edges hard and the depth correct in a single pass, and the hole rides the
+        // uniform, shut until something opens it.
+        let cloud_mesh = renderer.upload_mesh(device, &sky.shell.mesh);
+        let decks = sky
+            .decks
+            .iter()
+            .zip(&sky_maps)
+            .map(|(deck, map)| {
+                let [out, inner, open] = hole_rest();
+                let uniform = DrawUniform {
+                    color: color(deck.tone),
+                    params: [DITHER_FLOOR as f32, out as f32, inner as f32, open as f32],
+                    flags: FLAG_TEXTURED | FLAG_CLOUD_HOLE,
+                    ..DrawUniform::default()
+                };
+                CloudPart {
+                    material: renderer.material(device, MaterialDesc::cloud(), &uniform, Some(map)),
+                    uniform,
+                    scale: deck.scale as f32,
+                }
+            })
+            .collect();
+        let clouds = CloudStack {
+            mesh: cloud_mesh,
+            decks,
+        };
 
         // Farmland: the tops and sides sample the field strip, the posts are flat vertex colour.
         let mut cover = Vec::new();
@@ -236,6 +299,7 @@ impl Planet {
             walls,
             foam,
             air,
+            clouds,
             cover,
             foam_frame: 0,
             foam_at: 0.0,
@@ -267,9 +331,31 @@ impl Planet {
             part.uniform.model = model;
             part.flush(queue);
         }
+        for deck in &mut self.clouds.decks {
+            deck.uniform.model = scaled(model, deck.scale);
+            deck.material.set(queue, &deck.uniform);
+        }
     }
 
-    /// Draws the planet: opaque solids first, then the surf, as the prototype's `renderOrder` asks.
+    /// Opens the see-through hole for the camera's distance. Scrolling in opens a hole in the
+    /// weather over what the camera points at rather than thinning the whole sky, and because the
+    /// dither lives in the texture at one texel per world pixel its rim breaks into world-pixel
+    /// speckle by itself. The camera stays on `+z` looking at the origin — the planet spins, not
+    /// the camera — so the opening always faces the viewer and only its width and depth change.
+    ///
+    /// Call it whenever the distance changes; it writes only the decks.
+    pub fn set_camera_distance(&mut self, queue: &wgpu::Queue, distance: f32) {
+        let [out, inner, open] = hole_at(f64::from(distance));
+        for deck in &mut self.clouds.decks {
+            deck.uniform.params = [DITHER_FLOOR as f32, out as f32, inner as f32, open as f32];
+            deck.material.set(queue, &deck.uniform);
+        }
+    }
+
+    /// Draws the planet: opaque solids first, then the surf, then the cloud decks low to high, as
+    /// the prototype's `renderOrder` asks. The decks are the outermost shells and each writes
+    /// depth, so what separates them is the depth buffer; the order only settles ties between
+    /// decks.
     pub fn draw(&self, renderer: &Renderer, pass: &mut wgpu::RenderPass<'_>) {
         for part in [&self.ground, &self.walls]
             .into_iter()
@@ -277,6 +363,9 @@ impl Planet {
             .chain([&self.air, &self.foam])
         {
             renderer.draw(pass, &part.material, &part.mesh);
+        }
+        for deck in &self.clouds.decks {
+            renderer.draw(pass, &deck.material, &self.clouds.mesh);
         }
     }
 }

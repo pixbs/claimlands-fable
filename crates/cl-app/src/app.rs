@@ -249,6 +249,7 @@ impl App {
         if let Some(planet) = &mut self.planet {
             planet.animate(&gpu.queue, now_ms());
             planet.set_model(&gpu.queue, self.trackball.model());
+            planet.set_camera_distance(&gpu.queue, self.camera.distance());
         }
 
         let Some(mut frame) = gpu.frame() else { return };

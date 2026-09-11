@@ -15,7 +15,7 @@ prototype sections 2, 3b, 4b (texture), the cloud sky and the glow.
 | `make_foam_texture()` | `makeFoamTexture` (8-frame sheet) | ported |
 | `make_field_texture()`, `field_row_v` | `makeFieldTexture`, `fieldRowV` | ported |
 | `build_terrain_atlas`, `Atlas::refresh` / `Atlas::repaint`, `CoastFields` | `buildTerrainAtlas` | ported |
-| `make_cloud_sky` | `makeCloudSky` | issue M1 |
+| `make_cloud_sky`, `Sky`, `CloudDeck`, `CLOUD_DECKS`, `sky_seed` | `makeCloudSky`, its `buildClouds` call site | ported |
 | `make_glow` | `makeGlow` | issue M1 |
 
 ## Invariants
@@ -28,14 +28,26 @@ prototype sections 2, 3b, 4b (texture), the cloud sky and the glow.
   rebuild; they exist only to avoid repainting the whole planet.
 - A capital paints as a village: the prototype has only `houses`, and a capital walks the ground
   bare the same way.
+- The sky runs on its own stream: `sky_seed` folds the world seed to `(seed % 9973) + 7`, as the
+  prototype's call site does, so weather does not correlate with the terrain grown from the same
+  number. Feeding `make_cloud_sky` a raw world seed gives a valid sky of the wrong world.
+- The sky is a function of the seed alone; its size never is. One sky is shared by every world
+  size, so `CLOUD_TEX_W` is fixed and the height follows from the equal-area aspect (`W / π`,
+  rounded to a multiple of four).
+- A deck's texture is white throughout: the tint is the material's, and alpha carries the Bayer
+  rank so the shader dissolves a deck by lowering opacity rather than by repainting.
+- Deck coverage is a quantile of the texels, and the grid is equal-area, so a deck's covered share
+  equals its stated `cover`.
 
 ## Testing
 `tests/fixtures.rs` decodes `fixtures/pixelart/*.png` and compares texel bytes. Every strip is
-exact, the ones sampling `hash2` (cliff, foam) included, and so is the ground atlas of all three
-prototype worlds together with its per-tile and per-corner coast fields. The atlas test builds its
-snapshot from `fixtures/worldgen/*.json`, so it pins the port against the prototype's own levels and
-cover rather than against `cl-worldgen`. `src/atlas.rs` covers `refresh` and `repaint` against a
-full rebuild.
+exact, the ones sampling `hash2` (cliff, foam) included, and so are the ground atlas of all three
+prototype worlds together with its per-tile and per-corner coast fields, and all three cloud decks
+of `sky-s3521`. The atlas test builds its snapshot from `fixtures/worldgen/*.json`, so it pins the
+port against the prototype's own levels and cover rather than against `cl-worldgen`. `src/atlas.rs`
+covers `refresh` and `repaint` against a full rebuild; `src/sky.rs` covers the properties the
+fixture cannot state — that the decks terrace inward and each covers its stated share of sky.
 
 ## Non-goals
-Meshes and UVs (`cl-scenery`), GPU upload (`cl-render`).
+Meshes and UVs (`cl-scenery`), GPU upload (`cl-render`). For the sky that means the cloud shells,
+the drift and the see-through hole: this crate draws the decks, it does not place or animate them.

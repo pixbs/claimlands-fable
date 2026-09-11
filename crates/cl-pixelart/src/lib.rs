@@ -4,6 +4,7 @@
 
 mod atlas;
 pub mod palette;
+mod sky;
 mod strips;
 
 pub use atlas::{
@@ -12,6 +13,10 @@ pub use atlas::{
     SEA_FADE, SEA_OCT, SEA_SHALLOW, SPECKLE, build_terrain_atlas,
 };
 pub use cl_model::{Filter, Texture, Wrap};
+pub use sky::{
+    BAYER4, CLOUD_DECKS, CLOUD_F0, CLOUD_OCT, CLOUD_TEX_W, CloudDeck, DITHER_FLOOR, DITHER_RANKS,
+    Sky, make_cloud_sky, sky_seed,
+};
 pub use strips::{
     BEACH_PX, CLIFF_H, CLIFF_W, FIELD_ROWS, FOAM_FRAMES, FOAM_H, FOAM_PX, FOAM_W, FURROW_PX,
     field_row_v, make_cliff_texture, make_field_texture, make_foam_texture,
